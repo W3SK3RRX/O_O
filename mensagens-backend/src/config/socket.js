@@ -1,79 +1,24 @@
-import Message from "../models/Message.js";
-import Conversation from "../models/Conversation.js";
+import jwt from 'jsonwebtoken'
+import User from '../models/User.js'
 
-export default function registerSocket(io) {
-  io.on("connection", (socket) => {
-    console.log("Socket conectado:", socket.user.email);
+export default async function socketAuth(socket, next) {
+  try {
+    const token = socket.handshake.auth?.token
 
-    /**
-     * 🔌 Entrar em uma conversa (room)
-     * Garante que o usuário participa da conversa
-     */
-    socket.on("joinConversation", async (conversationId) => {
-      try {
-        const conversation = await Conversation.findOne({
-          _id: conversationId,
-          participants: socket.user._id,
-        });
+    if (!token) {
+      return next(new Error('Token não fornecido'))
+    }
 
-        if (!conversation) return;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    const user = await User.findById(decoded.id).select('-password')
 
-        socket.join(conversationId);
-      } catch (err) {
-        console.error("Erro ao entrar na conversa", err);
-      }
-    });
+    if (!user) {
+      return next(new Error('Usuário não encontrado'))
+    }
 
-    /**
-     * ✉️ Enviar mensagem criptografada (E2EE)
-     */
-    socket.on("sendMessage", async ({ conversationId, cipherText, iv }) => {
-      try {
-        const userId = socket.user._id;
-
-        if (!conversationId || !cipherText || !iv) return;
-
-        /**
-         * 🔐 Garante que o usuário participa da conversa
-         */
-        const conversation = await Conversation.findOne({
-          _id: conversationId,
-          participants: userId,
-        });
-
-        if (!conversation) return;
-
-        const message = await Message.create({
-          conversationId,
-          senderId: userId,
-          cipherText,
-          iv,
-          delivered: true,
-        });
-
-        conversation.lastMessage = message._id;
-        await conversation.save();
-
-        /**
-         * 📡 Emite payload criptografado
-         * Backend não interpreta conteúdo
-         */
-        io.to(conversationId).emit("newMessage", {
-          _id: message._id,
-          conversationId,
-          senderId: userId,
-          cipherText,
-          iv,
-          createdAt: message.createdAt,
-        });
-
-      } catch (err) {
-        console.error("Erro ao enviar mensagem", err);
-      }
-    });
-
-    socket.on("disconnect", () => {
-      console.log("Socket desconectado:", socket.user.email);
-    });
-  });
+    socket.user = user
+    return next()
+  } catch (error) {
+    return next(new Error('Não autorizado'))
+  }
 }

@@ -42,6 +42,35 @@ export const createConversation = async (req, res) => {
   }
 };
 
+export const saveConversationKeys = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { encryptedKeys } = req.body;
+    const userId = req.user._id;
+
+    if (!encryptedKeys || typeof encryptedKeys !== 'object') {
+      return res.status(400).json({ message: 'encryptedKeys é obrigatório' });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversa não encontrada' });
+    }
+
+    conversation.encryptedKeys = encryptedKeys;
+    await conversation.save();
+
+    return res.status(200).json({ message: 'Chaves da conversa salvas' });
+  } catch (error) {
+    console.error('Erro saveConversationKeys:', error);
+    return res.status(500).json({ message: 'Erro ao salvar chaves da conversa' });
+  }
+};
+
 export const getUserConversations = async (req, res) => {
   try {
     const userId = req.user._id;

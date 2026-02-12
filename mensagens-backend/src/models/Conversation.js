@@ -14,6 +14,12 @@ const ConversationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",
     },
+
+    encryptedKeys: {
+      type: Map,
+      of: String,
+      default: {},
+    },
   },
   {
     timestamps: true,

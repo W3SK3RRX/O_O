@@ -3,17 +3,33 @@ import User from '../models/User.js';
 
 export const createConversation = async (req, res) => {
   try {
-    const { receiverId } = req.body;
+    const { receiverId, participantId } = req.body;
     const senderId = req.user._id;
+
+    const targetUserId = receiverId || participantId;
+
+    if (!targetUserId) {
+      return res.status(400).json({ message: 'receiverId é obrigatório' });
+    }
+
+    if (String(targetUserId) === String(senderId)) {
+      return res.status(400).json({ message: 'Não é possível criar conversa com você mesmo' });
+    }
+
+    const targetUser = await User.findById(targetUserId);
+
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Usuário de destino não encontrado' });
+    }
 
     // Verifica se já existe uma conversa entre esses dois usuários
     let conversation = await Conversation.findOne({
-      participants: { $all: [senderId, receiverId] },
+      participants: { $all: [senderId, targetUserId] },
     });
 
     if (!conversation) {
       conversation = await Conversation.create({
-        participants: [senderId, receiverId],
+        participants: [senderId, targetUserId],
       });
     }
 

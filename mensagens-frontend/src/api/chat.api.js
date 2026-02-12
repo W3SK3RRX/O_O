@@ -11,7 +11,10 @@ export async function getMessages(conversationId) {
 }
 
 export async function createConversation(participantId) {
-  const res = await api.post('/conversations', { participantId })
+  const res = await api.post('/conversations', {
+    receiverId: participantId,
+    participantId,
+  })
   return res.data
 }
 

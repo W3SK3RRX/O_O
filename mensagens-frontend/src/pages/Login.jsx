@@ -18,9 +18,19 @@ export default function Login() {
     setError(null)
 
     try {
-      const { user, token } = await loginRequest(email, password)
+      const data = await loginRequest(email, password)
+      const token = data.token
+      const user = {
+        _id: data._id,
+        name: data.name,
+        email: data.email,
+        avatar: data.avatar,
+        publicKey: data.publicKey,
+        isAdmin: data.isAdmin,
+        mustChangePassword: data.mustChangePassword,
+      }
 
-      // 🔐 AGUARDA login + criptografia
+      // AGUARDA login + criptografia
       await login(user, token)
 
       if (user.mustChangePassword) {

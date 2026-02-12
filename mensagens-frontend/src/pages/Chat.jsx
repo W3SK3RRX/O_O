@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/auth.store'
 import MessageBubble from '../components/MessageBubble'
 
 import { loadConversationKey } from '../crypto/conv-storage'
+import { importConversationKey } from '../crypto/conversation'
 import { encryptMessage, decryptMessage } from '../crypto/message'
 
 export default function Chat() {
@@ -28,8 +29,9 @@ export default function Chat() {
 
   useEffect(() => {
     loadConversationKey(conversationId)
-      .then(key => {
-        if (!key) throw new Error()
+      .then(async keyBase64 => {
+        if (!keyBase64) throw new Error()
+        const key = await importConversationKey(keyBase64)
         setConversationKey(key)
       })
       .catch(() => {

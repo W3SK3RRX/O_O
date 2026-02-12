@@ -14,6 +14,7 @@ export default function Chat() {
   const navigate = useNavigate()
   const [text, setText] = useState('')
   const [conversationKey, setConversationKey] = useState(null)
+  const [decryptedMessages, setDecryptedMessages] = useState({})
 
   const user = useAuthStore(state => state.user)
   const socket = useSocketStore(state => state.socket)
@@ -45,7 +46,7 @@ export default function Chat() {
         alert('Chave da conversa não encontrada')
         navigate('/')
       })
-  }, [conversationId])
+  }, [conversationId, navigate])
 
   useEffect(() => {
     fetchMessages(conversationId)
@@ -70,7 +71,46 @@ export default function Chat() {
 
     socket.on('newMessage', handleNewMessage)
     return () => socket.off('newMessage', handleNewMessage)
-  }, [socket, conversationKey, conversationId])
+
+  }, [socket, conversationKey, conversationId, fetchMessages, addMessage, updateLastMessage])
+
+
+  useEffect(() => {
+    if (!conversationKey || messages.length === 0) return
+
+    let cancelled = false
+
+    const decryptLoadedMessages = async () => {
+      const decryptedEntries = await Promise.all(
+        messages.map(async msg => {
+          if (msg.text) return [msg._id, msg.text]
+          if (!msg.cipherText || !msg.iv) return [msg._id, '']
+
+          try {
+            const plainText = await decryptMessage(
+              conversationKey,
+              msg.cipherText,
+              msg.iv
+            )
+            return [msg._id, plainText]
+          } catch (error) {
+            console.error('Erro ao descriptografar mensagem', error)
+            return [msg._id, '[mensagem indisponível]']
+          }
+        })
+      )
+
+      if (!cancelled) {
+        setDecryptedMessages(Object.fromEntries(decryptedEntries))
+      }
+    }
+
+    decryptLoadedMessages()
+
+    return () => {
+      cancelled = true
+    }
+  }, [messages, conversationKey])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -104,8 +144,8 @@ export default function Chat() {
         {messages.map(msg => (
           <MessageBubble
             key={msg._id}
-            message={msg}
-            isMine={msg.senderId === user._id}
+            message={{ ...msg, text: msg.text ?? decryptedMessages[msg._id] ?? '' }}
+            isMine={(msg.senderId || msg.sender?._id) === user._id}
           />
         ))}
         {/* Elemento invisível para rolagem automática */}

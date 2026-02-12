@@ -1,5 +1,5 @@
 const DB_NAME = 'crypto-db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_NAME = 'user-keys';
 
 function openDB() {

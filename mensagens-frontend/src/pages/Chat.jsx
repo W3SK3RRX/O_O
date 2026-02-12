@@ -81,24 +81,44 @@ export default function Chat() {
   }
 
   return (
-    <div>
-      {messages.map(msg => (
-        <MessageBubble
-          key={msg._id}
-          message={msg}
-          isMine={msg.senderId === user._id}
+    <div style={styles.container}>
+      {/* Cabeçalho */}
+      <div style={styles.header}>
+        <button style={styles.backButton} onClick={() => navigate('/')}>
+          ←
+        </button>
+        <strong>Chat</strong>
+      </div>
+
+      {/* Lista de Mensagens */}
+      <div style={styles.messages}>
+        {messages.map(msg => (
+          <MessageBubble
+            key={msg._id}
+            message={msg}
+            isMine={msg.senderId === user._id}
+          />
+        ))}
+        {/* Elemento invisível para rolagem automática */}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input e Botão de Enviar */}
+      <div style={styles.input}>
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && sendMessage()}
+          placeholder="Digite sua mensagem..."
+          style={styles.textInput}
         />
-      ))}
-      <input
-        value={text}
-        onChange={e => setText(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && sendMessage()}
-      />
-      <div ref={messagesEndRef} />
+        <button onClick={sendMessage} style={styles.sendButton}>
+          ➤
+        </button>
+      </div>
     </div>
   )
 }
-
 
 const styles = {
   container: {
@@ -129,7 +149,10 @@ const styles = {
     flex: 1,
     overflowY: 'auto',
     padding: 12,
-    background: 'linear-gradient(#0b0f1a, #000)'
+    background: 'linear-gradient(#0b0f1a, #000)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8 // Adicionado para dar espaço entre balões
   },
   input: {
     display: 'flex',
@@ -149,13 +172,16 @@ const styles = {
     color: '#fff'
   },
   sendButton: {
-    width: 40,
-    height: 40,
+    width: 44, // Aumentei um pouco para facilitar o toque
+    height: 44,
     borderRadius: '50%',
     border: 'none',
     background: '#2e7d32',
     color: '#fff',
-    fontSize: 16,
-    cursor: 'pointer'
+    fontSize: 18,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   }
 }

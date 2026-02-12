@@ -1,6 +1,6 @@
 const DB_NAME = 'crypto-db'
-const STORE = 'conversations'
-const VERSION = 2
+const STORE = 'conversation-keys'
+const VERSION = 4
 
 function openDB() {
   return new Promise((resolve, reject) => {

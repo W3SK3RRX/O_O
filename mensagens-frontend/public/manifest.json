@@ -1,0 +1,9 @@
+{
+  "name": "Mensagens",
+  "short_name": "Mensagens",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e1e1e",
+  "icons": []
+}

@@ -17,6 +17,7 @@ export default function Chat() {
 
   const user = useAuthStore(state => state.user)
   const socket = useSocketStore(state => state.socket)
+  const connectSocket = useSocketStore(state => state.connect)
 
   const {
     messages,
@@ -26,6 +27,12 @@ export default function Chat() {
   } = useChatStore()
 
   const messagesEndRef = useRef(null)
+
+  useEffect(() => {
+    if (!socket) {
+      connectSocket()
+    }
+  }, [socket, connectSocket])
 
   useEffect(() => {
     loadConversationKey(conversationId)

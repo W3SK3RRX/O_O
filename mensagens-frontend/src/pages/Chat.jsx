@@ -5,9 +5,13 @@ import { useSocketStore } from '../store/socket.store'
 import { useAuthStore } from '../store/auth.store'
 import MessageBubble from '../components/MessageBubble'
 
-import { loadConversationKey } from '../crypto/conv-storage'
+import { getConversations } from '../api/chat.api'
+import { loadConversationKey, saveConversationKey } from '../crypto/conv-storage'
 import { importConversationKey } from '../crypto/conversation'
 import { encryptMessage, decryptMessage } from '../crypto/message'
+import { decryptWithPrivateKey } from '../crypto/envelope'
+import { importPrivateKey } from '../crypto/keys'
+import { getPrivateKey } from '../crypto/storage'
 
 export default function Chat() {
   const { conversationId } = useParams()
@@ -36,17 +40,48 @@ export default function Chat() {
   }, [socket, connectSocket])
 
   useEffect(() => {
-    loadConversationKey(conversationId)
-      .then(async keyBase64 => {
-        if (!keyBase64) throw new Error()
-        const key = await importConversationKey(keyBase64)
-        setConversationKey(key)
-      })
-      .catch(() => {
-        alert('Chave da conversa não encontrada')
-        navigate('/')
-      })
-  }, [conversationId, navigate])
+    const resolveConversationKey = async () => {
+      let keyBase64 = await loadConversationKey(conversationId)
+
+      try {
+        const conversations = await getConversations()
+        const conversation = conversations.find(c => c._id === conversationId)
+        const encryptedKey = conversation?.encryptedKeys?.[user._id]
+
+        if (encryptedKey) {
+          const privateKeyBase64 = await getPrivateKey()
+          if (!privateKeyBase64) {
+            throw new Error('Chave privada local não encontrada')
+          }
+
+          const privateKey = await importPrivateKey(privateKeyBase64)
+          const decryptedKeyBase64 = await decryptWithPrivateKey(
+            privateKey,
+            encryptedKey
+          )
+
+          if (decryptedKeyBase64 && decryptedKeyBase64 !== keyBase64) {
+            await saveConversationKey(conversationId, decryptedKeyBase64)
+            keyBase64 = decryptedKeyBase64
+          }
+        }
+      } catch (error) {
+        console.warn('Não foi possível sincronizar chave pelo backend', error)
+      }
+
+      if (!keyBase64) {
+        throw new Error('Chave da conversa não encontrada')
+      }
+
+      const key = await importConversationKey(keyBase64)
+      setConversationKey(key)
+    }
+
+    resolveConversationKey().catch(() => {
+      alert('Chave da conversa não encontrada')
+      navigate('/')
+    })
+  }, [conversationId, navigate, user?._id])
 
   useEffect(() => {
     fetchMessages(conversationId)

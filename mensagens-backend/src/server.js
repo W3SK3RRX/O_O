@@ -62,10 +62,10 @@ io.on("connection", (socket) => {
 
       const message = await Message.create({
         conversationId,
-        senderId: socket.user._id,
+        sender: socket.user._id,
         cipherText,
         iv,
-        delivered: true,
+        read: false,
       });
 
       conversation.lastMessage = message._id;

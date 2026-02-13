@@ -14,6 +14,7 @@ import {
 import { encryptWithPublicKey } from '../crypto/envelope'
 import { importPublicKey } from '../crypto/keys'
 import { saveConversationKey } from '../crypto/conv-storage'
+import { getPublicKey } from '../crypto/storage'
 
 export default function NewChat() {
   const [query, setQuery] = useState('')
@@ -35,10 +36,24 @@ export default function NewChat() {
     setLoading(true)
 
     try {
+      if (!targetUser.publicKey) {
+        alert('Este usuário ainda não inicializou a criptografia. Peça para ele fazer login primeiro.')
+        return
+      }
+
       /**
        * 1️⃣ Cria a conversa no backend
        */
       const conversation = await createConversation(targetUser._id)
+
+      const hasExistingKeys =
+        conversation?.encryptedKeys?.[user._id] &&
+        conversation?.encryptedKeys?.[targetUser._id]
+
+      if (hasExistingKeys) {
+        navigate(`/chat/${conversation._id}`)
+        return
+      }
 
       /**
        * 2️⃣ Gera chave AES da conversa
@@ -52,7 +67,11 @@ export default function NewChat() {
        */
       const encryptedKeys = {}
 
-      const participants = [user, targetUser]
+      const localPublicKey = await getPublicKey()
+      const participants = [
+        { ...user, publicKey: user.publicKey || localPublicKey },
+        targetUser,
+      ]
 
       for (const participant of participants) {
         if (!participant.publicKey) {

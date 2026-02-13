@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { getConversations, getMessages } from '../api/chat.api'
 import { encryptMessage } from '../crypto/message' // Import para encriptar
 import { loadConversationKey } from '../crypto/conv-storage' // Import para carregar a chave da conversa
+import { importConversationKey } from '../crypto/conversation'
 
 export const useChatStore = create((set, get) => ({
   conversations: [],
@@ -44,15 +45,16 @@ export const useChatStore = create((set, get) => ({
 
     try {
       // 1. Carrega a chave simétrica salva no IndexedDB
-      const sharedKey = await loadConversationKey(activeConversation._id)
+      const sharedKeyBase64 = await loadConversationKey(activeConversation._id)
       
-      if (!sharedKey) {
+      if (!sharedKeyBase64) {
         console.error("❌ Erro: Chave da conversa não encontrada. É necessário realizar o handshake.")
         return
       }
 
       // 2. Criptografa o texto
       // O backend espera: { conversationId, cipherText, iv }
+      const sharedKey = await importConversationKey(sharedKeyBase64)
       const { cipherText, iv } = await encryptMessage(sharedKey, text)
 
       // 3. Emite para o backend via Socket

@@ -33,6 +33,7 @@ export default function Chat() {
 
   const messagesEndRef = useRef(null)
 
+
   useEffect(() => {
     if (!socket) {
       connectSocket()
@@ -41,15 +42,17 @@ export default function Chat() {
 
   useEffect(() => {
     const resolveConversationKey = async () => {
-      let keyBase64 = await loadConversationKey(conversationId)
-
-      try {
+      const localKeyBase64 = await loadConversationKey(conversationId)
+      
+      // Se não tem chave local, tenta recuperar do servidor
+      if (!localKeyBase64) {
         const conversations = await getConversations()
         const conversation = conversations.find(c => c._id === conversationId)
         const encryptedKey = conversation?.encryptedKeys?.[user._id]
 
         if (encryptedKey) {
           const privateKeyBase64 = await getPrivateKey()
+
           if (!privateKeyBase64) {
             throw new Error('Chave privada local não encontrada')
           }
@@ -60,32 +63,38 @@ export default function Chat() {
             encryptedKey
           )
 
-          if (decryptedKeyBase64 && decryptedKeyBase64 !== keyBase64) {
-            await saveConversationKey(conversationId, decryptedKeyBase64)
-            keyBase64 = decryptedKeyBase64
+          if (!decryptedKeyBase64) {
+            throw new Error('Não foi possível descriptografar a chave da conversa')
           }
+
+          // Salva localmente para uso futuro
+          await saveConversationKey(conversationId, decryptedKeyBase64)
+          
+          const key = await importConversationKey(decryptedKeyBase64)
+          setConversationKey(key)
+          return
+        } else {
+            throw new Error('Chave da conversa não encontrada no servidor nem localmente')
         }
-      } catch (error) {
-        console.warn('Não foi possível sincronizar chave pelo backend', error)
       }
 
-      if (!keyBase64) {
-        throw new Error('Chave da conversa não encontrada')
-      }
-
-      const key = await importConversationKey(keyBase64)
+      // Se já tinha localmente
+      const key = await importConversationKey(localKeyBase64)
       setConversationKey(key)
     }
 
-    resolveConversationKey().catch(() => {
-      alert('Chave da conversa não encontrada')
+    resolveConversationKey().catch(error => {
+      console.error('Erro ao carregar chave da conversa', error)
+      alert('Não foi possível carregar a chave da conversa. Tente recriar a conversa.')
       navigate('/')
     })
   }, [conversationId, navigate, user?._id])
 
   useEffect(() => {
     fetchMessages(conversationId)
+  }, [conversationId, fetchMessages])
 
+  useEffect(() => {
     if (!socket || !conversationKey) return
 
     socket.emit('joinConversation', conversationId)
@@ -93,21 +102,26 @@ export default function Chat() {
     const handleNewMessage = async payload => {
       if (payload.conversationId !== conversationId) return
 
-      const plainText = await decryptMessage(
-        conversationKey,
-        payload.cipherText,
-        payload.iv
-      )
+      try {
+        const plainText = await decryptMessage(
+          conversationKey,
+          payload.cipherText,
+          payload.iv
+        )
 
-      const message = { ...payload, text: plainText }
-      addMessage(message)
-      updateLastMessage(message)
+        const message = { ...payload, text: plainText }
+        addMessage(message)
+        updateLastMessage(message)
+      } catch {
+        const message = { ...payload, text: '[mensagem indisponível]' }
+        addMessage(message)
+        updateLastMessage(message)
+      }
     }
 
     socket.on('newMessage', handleNewMessage)
     return () => socket.off('newMessage', handleNewMessage)
-
-  }, [socket, conversationKey, conversationId, fetchMessages, addMessage, updateLastMessage])
+  }, [socket, conversationKey, conversationId, addMessage, updateLastMessage])
 
 
   useEffect(() => {
@@ -129,7 +143,6 @@ export default function Chat() {
             )
             return [msg._id, plainText]
           } catch (error) {
-            console.error('Erro ao descriptografar mensagem', error)
             return [msg._id, '[mensagem indisponível]']
           }
         })
@@ -179,22 +192,25 @@ export default function Chat() {
         {messages.map(msg => (
           <MessageBubble
             key={msg._id}
-            message={{ ...msg, text: msg.text ?? decryptedMessages[msg._id] ?? '' }}
+            message={{
+              ...msg,
+              text: msg.text ?? decryptedMessages[msg._id] ?? ''
+            }}
             isMine={(msg.senderId || msg.sender?._id) === user._id}
           />
         ))}
-        {/* Elemento invisível para rolagem automática */}
+        {/* Elemento invisível para scroll automático */}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input e Botão de Enviar */}
       <div style={styles.input}>
         <input
+          placeholder="Digite sua mensagem..."
+          style={styles.textInput}
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && sendMessage()}
-          placeholder="Digite sua mensagem..."
-          style={styles.textInput}
         />
         <button onClick={sendMessage} style={styles.sendButton}>
           ➤
@@ -211,7 +227,8 @@ const styles = {
     margin: '0 auto',
     display: 'flex',
     flexDirection: 'column',
-    background: '#000'
+    background: '#000',
+    color: '#fff' // Garante texto branco se não especificado
   },
   header: {
     padding: '12px 16px',
@@ -236,7 +253,7 @@ const styles = {
     background: 'linear-gradient(#0b0f1a, #000)',
     display: 'flex',
     flexDirection: 'column',
-    gap: 8 // Adicionado para dar espaço entre balões
+    gap: 8
   },
   input: {
     display: 'flex',
@@ -256,7 +273,7 @@ const styles = {
     color: '#fff'
   },
   sendButton: {
-    width: 44, // Aumentei um pouco para facilitar o toque
+    width: 44, // Ajustado para facilitar o clique
     height: 44,
     borderRadius: '50%',
     border: 'none',

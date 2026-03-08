@@ -37,9 +37,17 @@ export default function ChatList() {
     <div style={styles.container}>
       <div style={styles.shell}>
         <div style={styles.header}>
-          <div>
-            <div style={styles.prompt}>inbox@secure-chat:~$</div>
-            <strong style={styles.title}>Conversas</strong>
+          <button
+            style={styles.backButton}
+            onClick={() => navigate(-1)}
+            title="Voltar"
+          >
+            {'<'}
+          </button>
+
+          <div style={styles.identity}>
+            <div style={styles.prompt}>[USER_ID: {user?._id?.slice(-6) || 'local'}]</div>
+            <strong style={styles.title}>CONVERSAS</strong>
           </div>
 
           <div style={styles.headerActions}>
@@ -49,7 +57,7 @@ export default function ChatList() {
                 onClick={() => navigate('/admin')}
                 title="Painel Admin"
               >
-                ⚙
+                ADM
               </button>
             )}
 
@@ -58,7 +66,7 @@ export default function ChatList() {
               onClick={handleLogout}
               title="Sair"
             >
-              ⎋
+              EXIT
             </button>
 
             <button
@@ -72,12 +80,12 @@ export default function ChatList() {
         </div>
 
         <div style={styles.subheader}>
-          Sessão ativa: <strong>{user?.name}</strong>
+          SYSTEM_ONLINE :: sessão ativa <strong>{user?.name}</strong>
         </div>
 
         <div style={styles.list}>
           {conversations.length === 0 && (
-            <p style={styles.empty}>Nenhuma conversa encontrada</p>
+            <p style={styles.empty}>{'>'} nenhum canal encontrado</p>
           )}
 
           {conversations.map(conv => (
@@ -88,11 +96,11 @@ export default function ChatList() {
             >
               <div style={styles.chatContent}>
                 <div style={styles.chatName}>
-                  {'>_'} Conversa #{conv._id.slice(-4)}
+                  root@chat:~$ open convo_{conv._id.slice(-4)}
                 </div>
 
                 <div style={styles.lastMessage}>
-                  {conv.lastMessage?.text || '[sem mensagens]'}
+                  {'> '} {conv.lastMessage?.text || '[sem mensagens]'}
                 </div>
               </div>
             </div>
@@ -106,28 +114,31 @@ export default function ChatList() {
 const styles = {
   container: {
     minHeight: '100dvh',
-    padding: '18px 10px',
+    padding: '16px 10px',
     display: 'flex',
     justifyContent: 'center'
   },
   shell: {
-    width: 'min(100%, 920px)',
+    width: 'min(100%, 940px)',
     border: '1px solid var(--border)',
-    borderRadius: 14,
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    background: 'linear-gradient(180deg, rgba(17, 28, 45, 0.96), rgba(8, 13, 22, 0.97))',
-    boxShadow: '0 30px 60px rgba(0, 0, 0, 0.45)'
+    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
+    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)'
   },
   header: {
-    padding: '14px 16px',
+    padding: '12px 14px',
     borderBottom: '1px solid var(--border)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 14,
+    gap: 10,
     flexWrap: 'wrap'
+  },
+  identity: {
+    flex: 1,
+    minWidth: 180
   },
   prompt: {
     color: 'var(--accent)',
@@ -135,37 +146,45 @@ const styles = {
     marginBottom: 2
   },
   title: {
-    fontSize: 18
+    fontSize: 18,
+    letterSpacing: 1
   },
   headerActions: {
     display: 'flex',
     gap: 8
   },
+  backButton: {
+    background: 'transparent',
+    border: '1px solid var(--border)',
+    color: 'var(--accent)',
+    fontSize: 18,
+    width: 36,
+    height: 36,
+    cursor: 'pointer'
+  },
   iconButton: {
-    background: 'var(--bg-main)',
+    background: 'transparent',
     border: '1px solid var(--border)',
     color: 'var(--text-main)',
-    fontSize: 15,
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    fontSize: 12,
+    minWidth: 48,
+    height: 36,
     cursor: 'pointer'
   },
   newChatButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
     border: '1px solid var(--accent-strong)',
-    background: 'linear-gradient(180deg, #4dd89b 0%, #2ca171 100%)',
-    color: '#06281d',
-    fontSize: 21,
+    background: 'rgba(0, 255, 90, 0.1)',
+    color: 'var(--accent)',
+    fontSize: 22,
     cursor: 'pointer'
   },
   subheader: {
-    padding: '9px 16px',
-    fontSize: 13,
+    padding: '10px 14px',
+    fontSize: 12,
     color: 'var(--text-muted)',
-    borderBottom: '1px solid var(--border)'
+    borderBottom: '1px solid rgba(14, 143, 61, 0.5)'
   },
   list: {
     flex: 1,
@@ -175,24 +194,23 @@ const styles = {
     gap: 8
   },
   chatItem: {
-    padding: '12px 12px',
-    borderRadius: 10,
+    padding: '12px',
     cursor: 'pointer',
-    border: '1px solid var(--border)',
-    background: 'rgba(16, 25, 40, 0.7)'
+    border: '1px solid rgba(14, 143, 61, 0.6)',
+    background: 'rgba(3, 16, 11, 0.8)'
   },
   chatContent: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 5
+    gap: 6
   },
   chatName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 700,
     color: 'var(--accent)'
   },
   lastMessage: {
-    fontSize: 13,
+    fontSize: 14,
     color: 'var(--text-main)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',

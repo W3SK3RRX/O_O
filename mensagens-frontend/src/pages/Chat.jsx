@@ -176,12 +176,12 @@ export default function Chat() {
     <div style={styles.container}>
       <div style={styles.shell}>
         <div style={styles.header}>
-          <button style={styles.backButton} onClick={() => navigate('/')}>
-            ←
+          <button style={styles.backButton} onClick={() => navigate(-1)} title="Voltar">
+            {'<'}
           </button>
           <div>
-            <strong style={styles.title}>Conversa</strong>
-            <div style={styles.prompt}>chat@secure:~/{conversationId?.slice(-6)}</div>
+            <strong style={styles.title}>CHAT_SESSION</strong>
+            <div style={styles.prompt}>root@node:~$ attach {conversationId?.slice(-6)}</div>
           </div>
         </div>
 
@@ -208,7 +208,7 @@ export default function Chat() {
             onKeyDown={e => e.key === 'Enter' && sendMessage()}
           />
           <button onClick={sendMessage} style={styles.sendButton}>
-            ➤
+            {'>'}
           </button>
         </div>
       </div>
@@ -219,82 +219,80 @@ export default function Chat() {
 const styles = {
   container: {
     minHeight: '100dvh',
-    padding: '18px 10px',
+    padding: '16px 10px',
     display: 'flex',
     justifyContent: 'center'
   },
   shell: {
-    width: 'min(100%, 920px)',
+    width: 'min(100%, 940px)',
     display: 'flex',
     flexDirection: 'column',
     border: '1px solid var(--border)',
-    borderRadius: 14,
     overflow: 'hidden',
-    background: 'linear-gradient(180deg, rgba(17, 28, 45, 0.96), rgba(8, 13, 22, 0.97))',
-    minHeight: 'calc(100dvh - 36px)'
+    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
+    minHeight: 'calc(100dvh - 32px)',
+    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)'
   },
   header: {
-    padding: '12px 16px',
+    padding: '12px 14px',
     borderBottom: '1px solid var(--border)',
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
-    background: 'rgba(10, 17, 29, 0.95)'
+    gap: 10,
+    background: 'rgba(1, 12, 8, 0.94)'
   },
   title: {
-    fontSize: 15,
-    display: 'block'
+    fontSize: 14,
+    display: 'block',
+    letterSpacing: 1
   },
   prompt: {
-    color: 'var(--accent)',
+    color: 'var(--text-muted)',
     fontSize: 12
   },
   backButton: {
-    background: 'var(--bg-main)',
+    background: 'transparent',
     border: '1px solid var(--border)',
-    color: 'var(--text-main)',
+    color: 'var(--accent)',
     fontSize: 18,
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
     cursor: 'pointer'
   },
   messages: {
     flex: 1,
     overflowY: 'auto',
     padding: 12,
-    backgroundImage: 'linear-gradient(rgba(91, 231, 169, 0.07) 1px, transparent 1px)',
-    backgroundSize: '100% 30px',
+    backgroundImage: 'linear-gradient(rgba(0, 255, 90, 0.12) 1px, transparent 1px)',
+    backgroundSize: '100% 34px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 6
+    gap: 8
   },
   input: {
     display: 'flex',
     gap: 8,
     padding: 10,
     borderTop: '1px solid var(--border)',
-    background: 'rgba(10, 17, 29, 0.95)'
+    background: 'rgba(1, 12, 8, 0.94)'
   },
   textInput: {
     flex: 1,
     minWidth: 0,
-    padding: '11px 14px',
-    fontSize: 14,
-    borderRadius: 10,
+    padding: '11px 12px',
+    fontSize: 15,
     border: '1px solid var(--border)',
     outline: 'none',
-    background: 'var(--bg-main)',
+    background: '#010805',
     color: 'var(--text-main)'
   },
   sendButton: {
     width: 42,
     height: 42,
-    borderRadius: 10,
     border: '1px solid var(--accent-strong)',
-    background: 'linear-gradient(180deg, #4dd89b 0%, #2ca171 100%)',
-    color: '#06281d',
-    fontSize: 18,
+    background: 'rgba(0, 255, 90, 0.12)',
+    color: 'var(--accent)',
+    fontSize: 21,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',

@@ -9,34 +9,24 @@ export default function MessageBubble({ message, isMine }) {
     >
       <div
         style={{
-          maxWidth: 'min(88%, 72ch)',
+          maxWidth: 'min(90%, 76ch)',
           padding: '10px 12px',
-          borderRadius: isMine
-            ? '12px 12px 4px 12px'
-            : '12px 12px 12px 4px',
-          border: `1px solid ${isMine ? '#2e6f55' : 'var(--border)'}`,
+          border: `1px solid ${isMine ? '#11ad4c' : 'rgba(14, 143, 61, 0.7)'}`,
           background: isMine
-            ? 'rgba(32, 73, 56, 0.82)'
-            : 'rgba(16, 25, 40, 0.82)',
-          color: 'var(--text-main)',
-          boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)'
+            ? 'rgba(2, 24, 12, 0.96)'
+            : 'rgba(1, 16, 10, 0.9)',
+          color: 'var(--text-main)'
         }}
       >
-        <div style={{ fontSize: 14, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
-          {message.text}
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            color: 'var(--text-muted)',
-            marginTop: 6,
-            textAlign: 'right'
-          }}
-        >
-          {new Date(message.createdAt).toLocaleTimeString([], {
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+          {isMine ? 'user@local:~$' : 'root@sender:~$'} [{new Date(message.createdAt).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit'
-          })}
+          })}]
+        </div>
+        <div style={{ fontSize: 18, marginBottom: 4 }}>{'>'}</div>
+        <div style={{ fontSize: 16, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
+          {message.text}
         </div>
       </div>
     </div>

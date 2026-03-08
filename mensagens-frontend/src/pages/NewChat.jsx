@@ -93,8 +93,17 @@ export default function NewChat() {
     <div style={styles.container}>
       <div style={styles.shell}>
         <div style={styles.header}>
-          <strong>Nova Conversa</strong>
-          <span style={styles.hint}>new-chat --secure</span>
+          <button
+            style={styles.backButton}
+            onClick={() => navigate(-1)}
+            title="Voltar"
+          >
+            {'<'}
+          </button>
+          <div>
+            <strong>NOVA CONVERSA</strong>
+            <div style={styles.hint}>root@secure:~$ create_channel --encrypted</div>
+          </div>
         </div>
 
         <div style={styles.content}>
@@ -110,12 +119,12 @@ export default function NewChat() {
               disabled={loading}
               style={styles.button}
             >
-              Buscar
+              BUSCAR
             </button>
           </div>
 
           {results.length === 0 && query && !loading && (
-            <p style={styles.empty}>Nenhum usuário encontrado</p>
+            <p style={styles.empty}>[!] nenhum usuário encontrado</p>
           )}
 
           <div style={styles.list}>
@@ -125,7 +134,7 @@ export default function NewChat() {
                 style={styles.item}
                 onClick={() => startConversation(u)}
               >
-                {'>_ '} {u.name}
+                {'> '} connect --target={u.name}
               </div>
             ))}
           </div>
@@ -140,30 +149,37 @@ const styles = {
     minHeight: '100dvh',
     display: 'flex',
     justifyContent: 'center',
-    padding: '18px 10px'
+    padding: '16px 10px'
   },
   shell: {
-    width: 'min(100%, 720px)',
-    borderRadius: 14,
+    width: 'min(100%, 760px)',
     border: '1px solid var(--border)',
     overflow: 'hidden',
-    background: 'linear-gradient(180deg, rgba(17, 28, 45, 0.96), rgba(8, 13, 22, 0.97))'
+    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
+    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)'
   },
   header: {
-    padding: '14px 16px',
+    padding: '12px 14px',
     borderBottom: '1px solid var(--border)',
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
-    flexWrap: 'wrap'
+    gap: 10
   },
   hint: {
-    color: 'var(--accent)',
+    color: 'var(--text-muted)',
     fontSize: 12
   },
+  backButton: {
+    background: 'transparent',
+    border: '1px solid var(--border)',
+    color: 'var(--accent)',
+    fontSize: 18,
+    width: 36,
+    height: 36,
+    cursor: 'pointer'
+  },
   content: {
-    padding: 16
+    padding: 14
   },
   search: {
     display: 'grid',
@@ -173,20 +189,18 @@ const styles = {
   },
   input: {
     minWidth: 0,
-    padding: '11px 12px',
+    padding: '12px',
     fontSize: 14,
-    borderRadius: 10,
     border: '1px solid var(--border)',
     outline: 'none',
-    background: 'var(--bg-main)',
+    background: '#010805',
     color: 'var(--text-main)'
   },
   button: {
-    padding: '0 16px',
-    borderRadius: 10,
+    padding: '0 14px',
     border: '1px solid var(--accent-strong)',
-    background: 'linear-gradient(180deg, #4dd89b 0%, #2ca171 100%)',
-    color: '#06281d',
+    background: 'rgba(0, 255, 90, 0.12)',
+    color: 'var(--accent)',
     cursor: 'pointer',
     fontWeight: 700
   },
@@ -196,12 +210,11 @@ const styles = {
     gap: 8
   },
   item: {
-    padding: '12px 12px',
-    background: 'rgba(16, 25, 40, 0.7)',
-    border: '1px solid var(--border)',
-    borderRadius: 10,
+    padding: '12px',
+    border: '1px solid rgba(14, 143, 61, 0.6)',
     cursor: 'pointer',
-    color: 'var(--text-main)'
+    color: 'var(--text-main)',
+    background: 'rgba(3, 16, 11, 0.8)'
   },
   empty: {
     color: 'var(--text-muted)',

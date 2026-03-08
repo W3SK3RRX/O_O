@@ -6,20 +6,19 @@ body,
 }
 
 :root {
-  --bg-main: #070b12;
-  --bg-panel: #0d1421;
-  --bg-elevated: #111c2d;
-  --bg-soft: #162339;
-  --text-main: #e6edf7;
-  --text-muted: #91a0b8;
-  --accent: #5be7a9;
-  --accent-strong: #3ac78a;
-  --border: #1f314d;
-  --danger: #ff6d7a;
+  --bg-main: #020907;
+  --bg-panel: #03110d;
+  --bg-soft: #041b14;
+  --text-main: #53ff92;
+  --text-muted: #1cc45f;
+  --accent: #00ff5a;
+  --accent-strong: #00d94d;
+  --border: #0e8f3d;
+  --danger: #ff5e7f;
 
   font-family: 'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Monaco, Consolas, monospace;
   line-height: 1.45;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--text-main);
   background-color: var(--bg-main);
   font-synthesis: none;
@@ -36,8 +35,15 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top right, rgba(91, 231, 169, 0.08), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(54, 120, 255, 0.12), transparent 35%),
+    radial-gradient(circle at top right, rgba(0, 255, 90, 0.08), transparent 30%),
+    radial-gradient(circle at bottom left, rgba(0, 160, 70, 0.08), transparent 36%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(0, 255, 90, 0.02) 0,
+      rgba(0, 255, 90, 0.02) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
     var(--bg-main);
   color: var(--text-main);
 }

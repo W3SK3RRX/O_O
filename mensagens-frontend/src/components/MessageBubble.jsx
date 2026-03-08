@@ -4,28 +4,32 @@ export default function MessageBubble({ message, isMine }) {
       style={{
         display: 'flex',
         justifyContent: isMine ? 'flex-end' : 'flex-start',
-        marginBottom: 10
+        marginBottom: 8
       }}
     >
       <div
         style={{
-          maxWidth: 'min(85%, 65ch)',
+          maxWidth: 'min(88%, 72ch)',
           padding: '10px 12px',
           borderRadius: isMine
             ? '12px 12px 4px 12px'
             : '12px 12px 12px 4px',
-          background: isMine ? '#2e7d32' : '#1f2437',
-          color: '#fff'
+          border: `1px solid ${isMine ? '#2e6f55' : 'var(--border)'}`,
+          background: isMine
+            ? 'rgba(32, 73, 56, 0.82)'
+            : 'rgba(16, 25, 40, 0.82)',
+          color: 'var(--text-main)',
+          boxShadow: '0 8px 18px rgba(0, 0, 0, 0.25)'
         }}
       >
-        <div style={{ fontSize: 14, lineHeight: 1.4 }}>
+        <div style={{ fontSize: 14, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
           {message.text}
         </div>
         <div
           style={{
-            fontSize: 10,
-            opacity: 0.6,
-            marginTop: 4,
+            fontSize: 11,
+            color: 'var(--text-muted)',
+            marginTop: 6,
             textAlign: 'right'
           }}
         >

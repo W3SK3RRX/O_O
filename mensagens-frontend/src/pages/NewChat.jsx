@@ -40,21 +40,12 @@ export default function NewChat() {
         alert('Este usuário ainda não inicializou a criptografia. Peça para ele fazer login primeiro.')
         return
       }
-      /**
-       * 1️⃣ Cria a conversa no backend
-       */
       const conversation = await createConversation(targetUser._id)
 
-      /**
-       * 2️⃣ Gera chave AES da conversa
-       */
       const conversationKey = await generateConversationKey()
       const conversationKeyBase64 =
         await exportConversationKey(conversationKey)
 
-      /**
-       * 3️⃣ Criptografa a chave para cada participante
-       */
       const encryptedKeys = {}
 
       const localPublicKey = await getPublicKey()
@@ -79,25 +70,16 @@ export default function NewChat() {
           )
       }
 
-      /**
-       * 4️⃣ Envia as chaves criptografadas ao backend
-       */
       await saveConversationKeys(
         conversation._id,
         encryptedKeys
       )
 
-      /**
-       * 5️⃣ Salva a chave da conversa localmente (para o usuário atual)
-       */
       await saveConversationKey(
         conversation._id,
         conversationKeyBase64
       )
 
-      /**
-       * 6️⃣ Navega para o chat
-       */
       navigate(`/chat/${conversation._id}`)
     } catch (err) {
       console.error('Erro ao iniciar conversa segura', err)
@@ -109,41 +91,44 @@ export default function NewChat() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <strong>Nova Conversa</strong>
-      </div>
-
-      <div style={styles.content}>
-        <div style={styles.search}>
-          <input
-            placeholder="Buscar usuário pelo nome"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            style={styles.input}
-          />
-          <button
-            onClick={handleSearch}
-            disabled={loading}
-            style={styles.button}
-          >
-            Buscar
-          </button>
+      <div style={styles.shell}>
+        <div style={styles.header}>
+          <strong>Nova Conversa</strong>
+          <span style={styles.hint}>new-chat --secure</span>
         </div>
 
-        {results.length === 0 && query && !loading && (
-          <p style={styles.empty}>Nenhum usuário encontrado</p>
-        )}
-
-        <div style={styles.list}>
-          {results.map(u => (
-            <div
-              key={u._id}
-              style={styles.item}
-              onClick={() => startConversation(u)}
+        <div style={styles.content}>
+          <div style={styles.search}>
+            <input
+              placeholder="Buscar usuário pelo nome"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              style={styles.input}
+            />
+            <button
+              onClick={handleSearch}
+              disabled={loading}
+              style={styles.button}
             >
-              {u.name}
-            </div>
-          ))}
+              Buscar
+            </button>
+          </div>
+
+          {results.length === 0 && query && !loading && (
+            <p style={styles.empty}>Nenhum usuário encontrado</p>
+          )}
+
+          <div style={styles.list}>
+            {results.map(u => (
+              <div
+                key={u._id}
+                style={styles.item}
+                onClick={() => startConversation(u)}
+              >
+                {'>_ '} {u.name}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -152,44 +137,58 @@ export default function NewChat() {
 
 const styles = {
   container: {
-    height: '100dvh',
-    maxWidth: 480,
-    margin: '0 auto',
+    minHeight: '100dvh',
     display: 'flex',
-    flexDirection: 'column',
-    background: '#000',
-    color: '#fff'
+    justifyContent: 'center',
+    padding: '18px 10px'
+  },
+  shell: {
+    width: 'min(100%, 720px)',
+    borderRadius: 14,
+    border: '1px solid var(--border)',
+    overflow: 'hidden',
+    background: 'linear-gradient(180deg, rgba(17, 28, 45, 0.96), rgba(8, 13, 22, 0.97))'
   },
   header: {
-    padding: '12px 16px',
-    borderBottom: '1px solid #1f2933',
-    background: '#0b0f1a'
+    padding: '14px 16px',
+    borderBottom: '1px solid var(--border)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap'
+  },
+  hint: {
+    color: 'var(--accent)',
+    fontSize: 12
   },
   content: {
     padding: 16
   },
   search: {
-    display: 'flex',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
     gap: 8,
     marginBottom: 16
   },
   input: {
-    flex: 1,
-    padding: '12px 16px',
-    fontSize: 16,
-    borderRadius: 20,
-    border: 'none',
+    minWidth: 0,
+    padding: '11px 12px',
+    fontSize: 14,
+    borderRadius: 10,
+    border: '1px solid var(--border)',
     outline: 'none',
-    background: '#1f2437',
-    color: '#fff'
+    background: 'var(--bg-main)',
+    color: 'var(--text-main)'
   },
   button: {
     padding: '0 16px',
-    borderRadius: 20,
-    border: 'none',
-    background: '#2e7d32',
-    color: '#fff',
-    cursor: 'pointer'
+    borderRadius: 10,
+    border: '1px solid var(--accent-strong)',
+    background: 'linear-gradient(180deg, #4dd89b 0%, #2ca171 100%)',
+    color: '#06281d',
+    cursor: 'pointer',
+    fontWeight: 700
   },
   list: {
     display: 'flex',
@@ -197,13 +196,15 @@ const styles = {
     gap: 8
   },
   item: {
-    padding: '14px 12px',
-    background: '#1f2437',
-    borderRadius: 8,
-    cursor: 'pointer'
+    padding: '12px 12px',
+    background: 'rgba(16, 25, 40, 0.7)',
+    border: '1px solid var(--border)',
+    borderRadius: 10,
+    cursor: 'pointer',
+    color: 'var(--text-main)'
   },
   empty: {
-    opacity: 0.6,
+    color: 'var(--text-muted)',
     fontSize: 13
   }
 }

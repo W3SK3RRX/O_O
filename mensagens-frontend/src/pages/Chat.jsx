@@ -33,7 +33,6 @@ export default function Chat() {
 
   const messagesEndRef = useRef(null)
 
-
   useEffect(() => {
     if (!socket) {
       connectSocket()
@@ -43,8 +42,7 @@ export default function Chat() {
   useEffect(() => {
     const resolveConversationKey = async () => {
       const localKeyBase64 = await loadConversationKey(conversationId)
-      
-      // Se não tem chave local, tenta recuperar do servidor
+
       if (!localKeyBase64) {
         const conversations = await getConversations()
         const conversation = conversations.find(c => c._id === conversationId)
@@ -67,18 +65,16 @@ export default function Chat() {
             throw new Error('Não foi possível descriptografar a chave da conversa')
           }
 
-          // Salva localmente para uso futuro
           await saveConversationKey(conversationId, decryptedKeyBase64)
-          
+
           const key = await importConversationKey(decryptedKeyBase64)
           setConversationKey(key)
           return
         } else {
-            throw new Error('Chave da conversa não encontrada no servidor nem localmente')
+          throw new Error('Chave da conversa não encontrada no servidor nem localmente')
         }
       }
 
-      // Se já tinha localmente
       const key = await importConversationKey(localKeyBase64)
       setConversationKey(key)
     }
@@ -122,7 +118,6 @@ export default function Chat() {
     socket.on('newMessage', handleNewMessage)
     return () => socket.off('newMessage', handleNewMessage)
   }, [socket, conversationKey, conversationId, addMessage, updateLastMessage])
-
 
   useEffect(() => {
     if (!conversationKey || messages.length === 0) return
@@ -179,42 +174,43 @@ export default function Chat() {
 
   return (
     <div style={styles.container}>
-      {/* Cabeçalho */}
-      <div style={styles.header}>
-        <button style={styles.backButton} onClick={() => navigate('/')}>
-          ←
-        </button>
-        <strong>Chat</strong>
-      </div>
+      <div style={styles.shell}>
+        <div style={styles.header}>
+          <button style={styles.backButton} onClick={() => navigate('/')}>
+            ←
+          </button>
+          <div>
+            <strong style={styles.title}>Conversa</strong>
+            <div style={styles.prompt}>chat@secure:~/{conversationId?.slice(-6)}</div>
+          </div>
+        </div>
 
-      {/* Lista de Mensagens */}
-      <div style={styles.messages}>
-        {messages.map(msg => (
-          <MessageBubble
-            key={msg._id}
-            message={{
-              ...msg,
-              text: msg.text ?? decryptedMessages[msg._id] ?? ''
-            }}
-            isMine={(msg.senderId || msg.sender?._id) === user._id}
+        <div style={styles.messages}>
+          {messages.map(msg => (
+            <MessageBubble
+              key={msg._id}
+              message={{
+                ...msg,
+                text: msg.text ?? decryptedMessages[msg._id] ?? ''
+              }}
+              isMine={(msg.senderId || msg.sender?._id) === user._id}
+            />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div style={styles.input}>
+          <input
+            placeholder="Digite sua mensagem..."
+            style={styles.textInput}
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && sendMessage()}
           />
-        ))}
-        {/* Elemento invisível para scroll automático */}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input e Botão de Enviar */}
-      <div style={styles.input}>
-        <input
-          placeholder="Digite sua mensagem..."
-          style={styles.textInput}
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && sendMessage()}
-        />
-        <button onClick={sendMessage} style={styles.sendButton}>
-          ➤
-        </button>
+          <button onClick={sendMessage} style={styles.sendButton}>
+            ➤
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -222,63 +218,82 @@ export default function Chat() {
 
 const styles = {
   container: {
-    height: '100dvh',
-    maxWidth: 480,
-    margin: '0 auto',
+    minHeight: '100dvh',
+    padding: '18px 10px',
+    display: 'flex',
+    justifyContent: 'center'
+  },
+  shell: {
+    width: 'min(100%, 920px)',
     display: 'flex',
     flexDirection: 'column',
-    background: '#000',
-    color: '#fff' // Garante texto branco se não especificado
+    border: '1px solid var(--border)',
+    borderRadius: 14,
+    overflow: 'hidden',
+    background: 'linear-gradient(180deg, rgba(17, 28, 45, 0.96), rgba(8, 13, 22, 0.97))',
+    minHeight: 'calc(100dvh - 36px)'
   },
   header: {
     padding: '12px 16px',
-    borderBottom: '1px solid #1f2933',
+    borderBottom: '1px solid var(--border)',
     display: 'flex',
     alignItems: 'center',
     gap: 12,
-    background: '#0b0f1a',
-    color: '#fff'
+    background: 'rgba(10, 17, 29, 0.95)'
+  },
+  title: {
+    fontSize: 15,
+    display: 'block'
+  },
+  prompt: {
+    color: 'var(--accent)',
+    fontSize: 12
   },
   backButton: {
-    background: 'transparent',
-    border: 'none',
-    color: '#fff',
+    background: 'var(--bg-main)',
+    border: '1px solid var(--border)',
+    color: 'var(--text-main)',
     fontSize: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     cursor: 'pointer'
   },
   messages: {
     flex: 1,
     overflowY: 'auto',
     padding: 12,
-    background: 'linear-gradient(#0b0f1a, #000)',
+    backgroundImage: 'linear-gradient(rgba(91, 231, 169, 0.07) 1px, transparent 1px)',
+    backgroundSize: '100% 30px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 8
+    gap: 6
   },
   input: {
     display: 'flex',
     gap: 8,
     padding: 10,
-    borderTop: '1px solid #1f2933',
-    background: '#0b0f1a'
+    borderTop: '1px solid var(--border)',
+    background: 'rgba(10, 17, 29, 0.95)'
   },
   textInput: {
     flex: 1,
-    padding: '12px 16px',
-    fontSize: 16,
-    borderRadius: 20,
-    border: 'none',
+    minWidth: 0,
+    padding: '11px 14px',
+    fontSize: 14,
+    borderRadius: 10,
+    border: '1px solid var(--border)',
     outline: 'none',
-    background: '#1f2437',
-    color: '#fff'
+    background: 'var(--bg-main)',
+    color: 'var(--text-main)'
   },
   sendButton: {
-    width: 44, // Ajustado para facilitar o clique
-    height: 44,
-    borderRadius: '50%',
-    border: 'none',
-    background: '#2e7d32',
-    color: '#fff',
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    border: '1px solid var(--accent-strong)',
+    background: 'linear-gradient(180deg, #4dd89b 0%, #2ca171 100%)',
+    color: '#06281d',
     fontSize: 18,
     cursor: 'pointer',
     display: 'flex',

@@ -30,7 +30,6 @@ export default function Login() {
         mustChangePassword: data.mustChangePassword,
       }
 
-      // AGUARDA login + criptografia
       await login(user, token)
 
       if (user.mustChangePassword) {
@@ -45,11 +44,12 @@ export default function Login() {
     }
   }
 
-
   return (
     <div style={styles.container}>
       <form onSubmit={handleSubmit} style={styles.form}>
-        <h2>Entrar</h2>
+        <div style={styles.promptLine}>secure-chat@login:~$</div>
+        <h2 style={styles.title}>Acesso seguro</h2>
+        <p style={styles.subtitle}>Entre para iniciar uma sessão criptografada</p>
 
         {error && <p style={styles.error}>{error}</p>}
 
@@ -59,6 +59,7 @@ export default function Login() {
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
+          style={styles.input}
         />
 
         <input
@@ -67,10 +68,11 @@ export default function Login() {
           value={password}
           onChange={e => setPassword(e.target.value)}
           required
+          style={styles.input}
         />
 
-        <button type="submit" disabled={loading}>
-          {loading ? 'Entrando...' : 'Entrar'}
+        <button type="submit" disabled={loading} style={styles.button}>
+          {loading ? 'Conectando...' : 'Entrar'}
         </button>
       </form>
     </div>
@@ -79,18 +81,57 @@ export default function Login() {
 
 const styles = {
   container: {
-    height: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center'
+    minHeight: '100dvh',
+    display: 'grid',
+    placeItems: 'center',
+    padding: '24px 16px'
   },
   form: {
-    width: 300,
+    width: 'min(92vw, 420px)',
     display: 'flex',
     flexDirection: 'column',
-    gap: 10
+    gap: 12,
+    padding: '24px 20px',
+    borderRadius: 14,
+    border: '1px solid var(--border)',
+    background: 'linear-gradient(180deg, rgba(18, 31, 52, 0.95) 0%, rgba(9, 17, 29, 0.96) 100%)',
+    boxShadow: '0 24px 50px rgba(0, 0, 0, 0.45)'
+  },
+  promptLine: {
+    color: 'var(--accent)',
+    fontSize: 12
+  },
+  title: {
+    margin: 0,
+    fontSize: 24
+  },
+  subtitle: {
+    margin: '0 0 8px',
+    fontSize: 13,
+    color: 'var(--text-muted)'
+  },
+  input: {
+    width: '100%',
+    padding: '12px 14px',
+    borderRadius: 10,
+    border: '1px solid var(--border)',
+    outline: 'none',
+    background: 'var(--bg-main)',
+    color: 'var(--text-main)'
+  },
+  button: {
+    marginTop: 4,
+    padding: '12px 14px',
+    borderRadius: 10,
+    border: '1px solid var(--accent-strong)',
+    background: 'linear-gradient(180deg, #4dd89b 0%, #2ca171 100%)',
+    color: '#06281d',
+    fontWeight: 700,
+    cursor: 'pointer'
   },
   error: {
-    color: 'red'
+    margin: 0,
+    color: 'var(--danger)',
+    fontSize: 13
   }
 }

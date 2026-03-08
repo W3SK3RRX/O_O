@@ -30,7 +30,6 @@ export default function Login() {
         mustChangePassword: data.mustChangePassword,
       }
 
-      // AGUARDA login + criptografia
       await login(user, token)
 
       if (user.mustChangePassword) {
@@ -45,11 +44,12 @@ export default function Login() {
     }
   }
 
-
   return (
     <div style={styles.container}>
       <form onSubmit={handleSubmit} style={styles.form}>
-        <h2>Entrar</h2>
+        <div style={styles.promptLine}>[SYSTEM_LOGIN]</div>
+        <h2 style={styles.title}>O_O</h2>
+        <p style={styles.subtitle}>root@secure:~$ login --encrypted</p>
 
         {error && <p style={styles.error}>{error}</p>}
 
@@ -59,6 +59,7 @@ export default function Login() {
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
+          style={styles.input}
         />
 
         <input
@@ -67,10 +68,11 @@ export default function Login() {
           value={password}
           onChange={e => setPassword(e.target.value)}
           required
+          style={styles.input}
         />
 
-        <button type="submit" disabled={loading}>
-          {loading ? 'Entrando...' : 'Entrar'}
+        <button type="submit" disabled={loading} style={styles.button}>
+          {loading ? 'CONECTANDO...' : 'ENTRAR'}
         </button>
       </form>
     </div>
@@ -79,18 +81,55 @@ export default function Login() {
 
 const styles = {
   container: {
-    height: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center'
+    minHeight: '100dvh',
+    display: 'grid',
+    placeItems: 'center',
+    padding: '16px 10px'
   },
   form: {
-    width: 300,
+    width: 'min(100%, 760px)',
     display: 'flex',
     flexDirection: 'column',
-    gap: 10
+    gap: 12,
+    padding: '18px 14px',
+    border: '1px solid var(--border)',
+    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
+    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)'
+  },
+  promptLine: {
+    color: 'var(--accent)',
+    fontSize: 12
+  },
+  title: {
+    margin: 0,
+    fontSize: 24,
+    letterSpacing: 1
+  },
+  subtitle: {
+    margin: '0 0 8px',
+    fontSize: 12,
+    color: 'var(--text-muted)'
+  },
+  input: {
+    width: '100%',
+    padding: '12px',
+    border: '1px solid var(--border)',
+    outline: 'none',
+    background: '#010805',
+    color: 'var(--text-main)'
+  },
+  button: {
+    marginTop: 4,
+    padding: '12px',
+    border: '1px solid var(--accent-strong)',
+    background: 'rgba(0, 255, 90, 0.12)',
+    color: 'var(--accent)',
+    fontWeight: 700,
+    cursor: 'pointer'
   },
   error: {
-    color: 'red'
+    margin: 0,
+    color: 'var(--danger)',
+    fontSize: 13
   }
 }

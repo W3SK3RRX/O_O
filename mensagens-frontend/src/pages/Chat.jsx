@@ -13,12 +13,37 @@ import { decryptWithPrivateKey } from '../crypto/envelope'
 import { importPrivateKey } from '../crypto/keys'
 import { getPrivateKey } from '../crypto/storage'
 
+const getConversationTitle = (conversation, currentUserId) => {
+  if (!conversation) return 'CHAT_SESSION'
+
+  const candidates =
+    conversation.participants ||
+    conversation.users ||
+    conversation.members ||
+    []
+
+  const names = candidates
+    .filter(p => {
+      const id = p?._id || p?.id || p
+      return id && id !== currentUserId
+    })
+    .map(p => p?.name || p?.username)
+    .filter(Boolean)
+
+  if (names.length > 0) {
+    return names.join(' • ')
+  }
+
+  return `Conversa #${conversation._id?.slice(-4) || ''}`
+}
+
 export default function Chat() {
   const { conversationId } = useParams()
   const navigate = useNavigate()
   const [text, setText] = useState('')
   const [conversationKey, setConversationKey] = useState(null)
   const [decryptedMessages, setDecryptedMessages] = useState({})
+  const [conversationTitle, setConversationTitle] = useState('CHAT_SESSION')
 
   const user = useAuthStore(state => state.user)
   const socket = useSocketStore(state => state.socket)
@@ -33,7 +58,6 @@ export default function Chat() {
 
   const messagesEndRef = useRef(null)
 
-
   useEffect(() => {
     if (!socket) {
       connectSocket()
@@ -42,12 +66,14 @@ export default function Chat() {
 
   useEffect(() => {
     const resolveConversationKey = async () => {
+      const conversations = await getConversations()
+      const conversation = conversations.find(c => c._id === conversationId)
+
+      setConversationTitle(getConversationTitle(conversation, user?._id))
+
       const localKeyBase64 = await loadConversationKey(conversationId)
-      
-      // Se não tem chave local, tenta recuperar do servidor
+
       if (!localKeyBase64) {
-        const conversations = await getConversations()
-        const conversation = conversations.find(c => c._id === conversationId)
         const encryptedKey = conversation?.encryptedKeys?.[user._id]
 
         if (encryptedKey) {
@@ -67,18 +93,16 @@ export default function Chat() {
             throw new Error('Não foi possível descriptografar a chave da conversa')
           }
 
-          // Salva localmente para uso futuro
           await saveConversationKey(conversationId, decryptedKeyBase64)
-          
+
           const key = await importConversationKey(decryptedKeyBase64)
           setConversationKey(key)
           return
-        } else {
-            throw new Error('Chave da conversa não encontrada no servidor nem localmente')
         }
+
+        throw new Error('Chave da conversa não encontrada no servidor nem localmente')
       }
 
-      // Se já tinha localmente
       const key = await importConversationKey(localKeyBase64)
       setConversationKey(key)
     }
@@ -123,7 +147,6 @@ export default function Chat() {
     return () => socket.off('newMessage', handleNewMessage)
   }, [socket, conversationKey, conversationId, addMessage, updateLastMessage])
 
-
   useEffect(() => {
     if (!conversationKey || messages.length === 0) return
 
@@ -142,7 +165,7 @@ export default function Chat() {
               msg.iv
             )
             return [msg._id, plainText]
-          } catch (error) {
+          } catch {
             return [msg._id, '[mensagem indisponível]']
           }
         })
@@ -179,42 +202,43 @@ export default function Chat() {
 
   return (
     <div style={styles.container}>
-      {/* Cabeçalho */}
-      <div style={styles.header}>
-        <button style={styles.backButton} onClick={() => navigate('/')}>
-          ←
-        </button>
-        <strong>Chat</strong>
-      </div>
+      <div style={styles.shell}>
+        <div style={styles.header}>
+          <button style={styles.backButton} onClick={() => navigate(-1)} title="Voltar">
+            {'<'}
+          </button>
+          <div>
+            <strong style={styles.title}>{conversationTitle}</strong>
+            <div style={styles.prompt}>root@node:~$ attach {conversationId?.slice(-6)}</div>
+          </div>
+        </div>
 
-      {/* Lista de Mensagens */}
-      <div style={styles.messages}>
-        {messages.map(msg => (
-          <MessageBubble
-            key={msg._id}
-            message={{
-              ...msg,
-              text: msg.text ?? decryptedMessages[msg._id] ?? ''
-            }}
-            isMine={(msg.senderId || msg.sender?._id) === user._id}
+        <div style={styles.messages}>
+          {messages.map(msg => (
+            <MessageBubble
+              key={msg._id}
+              message={{
+                ...msg,
+                text: msg.text ?? decryptedMessages[msg._id] ?? ''
+              }}
+              isMine={(msg.senderId || msg.sender?._id) === user._id}
+            />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div style={styles.input}>
+          <input
+            placeholder="Digite sua mensagem..."
+            style={styles.textInput}
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && sendMessage()}
           />
-        ))}
-        {/* Elemento invisível para scroll automático */}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input e Botão de Enviar */}
-      <div style={styles.input}>
-        <input
-          placeholder="Digite sua mensagem..."
-          style={styles.textInput}
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && sendMessage()}
-        />
-        <button onClick={sendMessage} style={styles.sendButton}>
-          ➤
-        </button>
+          <button onClick={sendMessage} style={styles.sendButton}>
+            {'>'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -222,35 +246,51 @@ export default function Chat() {
 
 const styles = {
   container: {
-    height: '100dvh',
-    maxWidth: 480,
-    margin: '0 auto',
+    minHeight: '100dvh',
+    padding: '16px 10px',
+    display: 'flex',
+    justifyContent: 'center'
+  },
+  shell: {
+    width: 'min(100%, 940px)',
     display: 'flex',
     flexDirection: 'column',
-    background: '#000',
-    color: '#fff' // Garante texto branco se não especificado
+    border: '1px solid var(--border)',
+    overflow: 'hidden',
+    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
+    minHeight: 'calc(100dvh - 32px)',
+    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)'
   },
   header: {
-    padding: '12px 16px',
-    borderBottom: '1px solid #1f2933',
+    padding: '12px 14px',
+    borderBottom: '1px solid var(--border)',
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
-    background: '#0b0f1a',
-    color: '#fff'
+    gap: 10,
+    background: 'rgba(1, 12, 8, 0.94)'
+  },
+  title: {
+    fontSize: 14,
+    display: 'block',
+    letterSpacing: 1
+  },
+  prompt: {
+    color: 'var(--text-muted)',
+    fontSize: 12
   },
   backButton: {
     background: 'transparent',
-    border: 'none',
-    color: '#fff',
+    border: '1px solid var(--border)',
+    color: 'var(--accent)',
     fontSize: 18,
+    width: 36,
+    height: 36,
     cursor: 'pointer'
   },
   messages: {
     flex: 1,
     overflowY: 'auto',
     padding: 12,
-    background: 'linear-gradient(#0b0f1a, #000)',
     display: 'flex',
     flexDirection: 'column',
     gap: 8
@@ -259,27 +299,26 @@ const styles = {
     display: 'flex',
     gap: 8,
     padding: 10,
-    borderTop: '1px solid #1f2933',
-    background: '#0b0f1a'
+    borderTop: '1px solid var(--border)',
+    background: 'rgba(1, 12, 8, 0.94)'
   },
   textInput: {
     flex: 1,
-    padding: '12px 16px',
-    fontSize: 16,
-    borderRadius: 20,
-    border: 'none',
+    minWidth: 0,
+    padding: '11px 12px',
+    fontSize: 15,
+    border: '1px solid var(--border)',
     outline: 'none',
-    background: '#1f2437',
-    color: '#fff'
+    background: '#010805',
+    color: 'var(--text-main)'
   },
   sendButton: {
-    width: 44, // Ajustado para facilitar o clique
-    height: 44,
-    borderRadius: '50%',
-    border: 'none',
-    background: '#2e7d32',
-    color: '#fff',
-    fontSize: 18,
+    width: 42,
+    height: 42,
+    border: '1px solid var(--accent-strong)',
+    background: 'rgba(0, 255, 90, 0.12)',
+    color: 'var(--accent)',
+    fontSize: 21,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',

@@ -47,9 +47,9 @@ export default function Login() {
   return (
     <div style={styles.container}>
       <form onSubmit={handleSubmit} style={styles.form}>
-        <div style={styles.promptLine}>secure-chat@login:~$</div>
-        <h2 style={styles.title}>Acesso seguro</h2>
-        <p style={styles.subtitle}>Entre para iniciar uma sessão criptografada</p>
+        <div style={styles.promptLine}>[SYSTEM_LOGIN]</div>
+        <h2 style={styles.title}>AUTH TERMINAL</h2>
+        <p style={styles.subtitle}>root@secure:~$ login --encrypted</p>
 
         {error && <p style={styles.error}>{error}</p>}
 
@@ -72,7 +72,7 @@ export default function Login() {
         />
 
         <button type="submit" disabled={loading} style={styles.button}>
-          {loading ? 'Conectando...' : 'Entrar'}
+          {loading ? 'CONECTANDO...' : 'ENTRAR'}
         </button>
       </form>
     </div>
@@ -84,18 +84,17 @@ const styles = {
     minHeight: '100dvh',
     display: 'grid',
     placeItems: 'center',
-    padding: '24px 16px'
+    padding: '16px 10px'
   },
   form: {
-    width: 'min(92vw, 420px)',
+    width: 'min(100%, 760px)',
     display: 'flex',
     flexDirection: 'column',
     gap: 12,
-    padding: '24px 20px',
-    borderRadius: 14,
+    padding: '18px 14px',
     border: '1px solid var(--border)',
-    background: 'linear-gradient(180deg, rgba(18, 31, 52, 0.95) 0%, rgba(9, 17, 29, 0.96) 100%)',
-    boxShadow: '0 24px 50px rgba(0, 0, 0, 0.45)'
+    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
+    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)'
   },
   promptLine: {
     color: 'var(--accent)',
@@ -103,29 +102,28 @@ const styles = {
   },
   title: {
     margin: 0,
-    fontSize: 24
+    fontSize: 24,
+    letterSpacing: 1
   },
   subtitle: {
     margin: '0 0 8px',
-    fontSize: 13,
+    fontSize: 12,
     color: 'var(--text-muted)'
   },
   input: {
     width: '100%',
-    padding: '12px 14px',
-    borderRadius: 10,
+    padding: '12px',
     border: '1px solid var(--border)',
     outline: 'none',
-    background: 'var(--bg-main)',
+    background: '#010805',
     color: 'var(--text-main)'
   },
   button: {
     marginTop: 4,
-    padding: '12px 14px',
-    borderRadius: 10,
+    padding: '12px',
     border: '1px solid var(--accent-strong)',
-    background: 'linear-gradient(180deg, #4dd89b 0%, #2ca171 100%)',
-    color: '#06281d',
+    background: 'rgba(0, 255, 90, 0.12)',
+    color: 'var(--accent)',
     fontWeight: 700,
     cursor: 'pointer'
   },

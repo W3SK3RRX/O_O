@@ -46,7 +46,7 @@ export default function ChatList() {
           </button>
 
           <div style={styles.identity}>
-            <div style={styles.prompt}>[USER_ID: {user?._id?.slice(-6) || 'local'}]</div>
+            <div style={styles.prompt}>[USER: {user?.name || 'local'}]</div>
             <strong style={styles.title}>CONVERSAS</strong>
           </div>
 

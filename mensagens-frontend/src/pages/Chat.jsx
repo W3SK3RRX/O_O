@@ -13,12 +13,37 @@ import { decryptWithPrivateKey } from '../crypto/envelope'
 import { importPrivateKey } from '../crypto/keys'
 import { getPrivateKey } from '../crypto/storage'
 
+const getConversationTitle = (conversation, currentUserId) => {
+  if (!conversation) return 'CHAT_SESSION'
+
+  const candidates =
+    conversation.participants ||
+    conversation.users ||
+    conversation.members ||
+    []
+
+  const names = candidates
+    .filter(p => {
+      const id = p?._id || p?.id || p
+      return id && id !== currentUserId
+    })
+    .map(p => p?.name || p?.username)
+    .filter(Boolean)
+
+  if (names.length > 0) {
+    return names.join(' • ')
+  }
+
+  return `Conversa #${conversation._id?.slice(-4) || ''}`
+}
+
 export default function Chat() {
   const { conversationId } = useParams()
   const navigate = useNavigate()
   const [text, setText] = useState('')
   const [conversationKey, setConversationKey] = useState(null)
   const [decryptedMessages, setDecryptedMessages] = useState({})
+  const [conversationTitle, setConversationTitle] = useState('CHAT_SESSION')
 
   const user = useAuthStore(state => state.user)
   const socket = useSocketStore(state => state.socket)
@@ -41,11 +66,14 @@ export default function Chat() {
 
   useEffect(() => {
     const resolveConversationKey = async () => {
+      const conversations = await getConversations()
+      const conversation = conversations.find(c => c._id === conversationId)
+
+      setConversationTitle(getConversationTitle(conversation, user?._id))
+
       const localKeyBase64 = await loadConversationKey(conversationId)
 
       if (!localKeyBase64) {
-        const conversations = await getConversations()
-        const conversation = conversations.find(c => c._id === conversationId)
         const encryptedKey = conversation?.encryptedKeys?.[user._id]
 
         if (encryptedKey) {
@@ -70,9 +98,9 @@ export default function Chat() {
           const key = await importConversationKey(decryptedKeyBase64)
           setConversationKey(key)
           return
-        } else {
-          throw new Error('Chave da conversa não encontrada no servidor nem localmente')
         }
+
+        throw new Error('Chave da conversa não encontrada no servidor nem localmente')
       }
 
       const key = await importConversationKey(localKeyBase64)
@@ -137,7 +165,7 @@ export default function Chat() {
               msg.iv
             )
             return [msg._id, plainText]
-          } catch (error) {
+          } catch {
             return [msg._id, '[mensagem indisponível]']
           }
         })
@@ -180,7 +208,7 @@ export default function Chat() {
             {'<'}
           </button>
           <div>
-            <strong style={styles.title}>CHAT_SESSION</strong>
+            <strong style={styles.title}>{conversationTitle}</strong>
             <div style={styles.prompt}>root@node:~$ attach {conversationId?.slice(-6)}</div>
           </div>
         </div>
@@ -263,8 +291,6 @@ const styles = {
     flex: 1,
     overflowY: 'auto',
     padding: 12,
-    backgroundImage: 'linear-gradient(rgba(0, 255, 90, 0.12) 1px, transparent 1px)',
-    backgroundSize: '100% 34px',
     display: 'flex',
     flexDirection: 'column',
     gap: 8

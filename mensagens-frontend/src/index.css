@@ -1,73 +1,59 @@
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
 }
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --bg-main: #020907;
+  --bg-panel: #03110d;
+  --bg-soft: #041b14;
+  --text-main: #53ff92;
+  --text-muted: #1cc45f;
+  --accent: #00ff5a;
+  --accent-strong: #00d94d;
+  --border: #0e8f3d;
+  --danger: #ff5e7f;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  font-family: 'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Monaco, Consolas, monospace;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--text-main);
+  background-color: var(--bg-main);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+* {
+  box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, rgba(0, 255, 90, 0.08), transparent 30%),
+    radial-gradient(circle at bottom left, rgba(0, 160, 70, 0.08), transparent 36%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(0, 255, 90, 0.02) 0,
+      rgba(0, 255, 90, 0.02) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    var(--bg-main);
+  color: var(--text-main);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+input,
+button,
+textarea {
+  font: inherit;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+a {
+  color: var(--accent);
 }

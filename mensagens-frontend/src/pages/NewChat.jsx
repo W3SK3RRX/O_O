@@ -40,21 +40,12 @@ export default function NewChat() {
         alert('Este usuário ainda não inicializou a criptografia. Peça para ele fazer login primeiro.')
         return
       }
-      /**
-       * 1️⃣ Cria a conversa no backend
-       */
       const conversation = await createConversation(targetUser._id)
 
-      /**
-       * 2️⃣ Gera chave AES da conversa
-       */
       const conversationKey = await generateConversationKey()
       const conversationKeyBase64 =
         await exportConversationKey(conversationKey)
 
-      /**
-       * 3️⃣ Criptografa a chave para cada participante
-       */
       const encryptedKeys = {}
 
       const localPublicKey = await getPublicKey()
@@ -79,25 +70,16 @@ export default function NewChat() {
           )
       }
 
-      /**
-       * 4️⃣ Envia as chaves criptografadas ao backend
-       */
       await saveConversationKeys(
         conversation._id,
         encryptedKeys
       )
 
-      /**
-       * 5️⃣ Salva a chave da conversa localmente (para o usuário atual)
-       */
       await saveConversationKey(
         conversation._id,
         conversationKeyBase64
       )
 
-      /**
-       * 6️⃣ Navega para o chat
-       */
       navigate(`/chat/${conversation._id}`)
     } catch (err) {
       console.error('Erro ao iniciar conversa segura', err)
@@ -109,41 +91,53 @@ export default function NewChat() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <strong>Nova Conversa</strong>
-      </div>
-
-      <div style={styles.content}>
-        <div style={styles.search}>
-          <input
-            placeholder="Buscar usuário pelo nome"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            style={styles.input}
-          />
+      <div style={styles.shell}>
+        <div style={styles.header}>
           <button
-            onClick={handleSearch}
-            disabled={loading}
-            style={styles.button}
+            style={styles.backButton}
+            onClick={() => navigate(-1)}
+            title="Voltar"
           >
-            Buscar
+            {'<'}
           </button>
+          <div>
+            <strong>NOVA CONVERSA</strong>
+            <div style={styles.hint}>root@secure:~$ create_channel --encrypted</div>
+          </div>
         </div>
 
-        {results.length === 0 && query && !loading && (
-          <p style={styles.empty}>Nenhum usuário encontrado</p>
-        )}
-
-        <div style={styles.list}>
-          {results.map(u => (
-            <div
-              key={u._id}
-              style={styles.item}
-              onClick={() => startConversation(u)}
+        <div style={styles.content}>
+          <div style={styles.search}>
+            <input
+              placeholder="Buscar usuário pelo nome"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              style={styles.input}
+            />
+            <button
+              onClick={handleSearch}
+              disabled={loading}
+              style={styles.button}
             >
-              {u.name}
-            </div>
-          ))}
+              BUSCAR
+            </button>
+          </div>
+
+          {results.length === 0 && query && !loading && (
+            <p style={styles.empty}>[!] nenhum usuário encontrado</p>
+          )}
+
+          <div style={styles.list}>
+            {results.map(u => (
+              <div
+                key={u._id}
+                style={styles.item}
+                onClick={() => startConversation(u)}
+              >
+                {'> '} connect --target={u.name}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -152,44 +146,63 @@ export default function NewChat() {
 
 const styles = {
   container: {
-    height: '100dvh',
-    maxWidth: 480,
-    margin: '0 auto',
+    minHeight: '100dvh',
     display: 'flex',
-    flexDirection: 'column',
-    background: '#000',
-    color: '#fff'
+    justifyContent: 'center',
+    padding: '16px 10px'
+  },
+  shell: {
+    width: 'min(100%, 760px)',
+    border: '1px solid var(--border)',
+    overflow: 'hidden',
+    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
+    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)'
   },
   header: {
-    padding: '12px 16px',
-    borderBottom: '1px solid #1f2933',
-    background: '#0b0f1a'
+    padding: '12px 14px',
+    borderBottom: '1px solid var(--border)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10
+  },
+  hint: {
+    color: 'var(--text-muted)',
+    fontSize: 12
+  },
+  backButton: {
+    background: 'transparent',
+    border: '1px solid var(--border)',
+    color: 'var(--accent)',
+    fontSize: 18,
+    width: 36,
+    height: 36,
+    cursor: 'pointer'
   },
   content: {
-    padding: 16
+    padding: 14
   },
   search: {
-    display: 'flex',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
     gap: 8,
     marginBottom: 16
   },
   input: {
-    flex: 1,
-    padding: '12px 16px',
-    fontSize: 16,
-    borderRadius: 20,
-    border: 'none',
+    minWidth: 0,
+    padding: '12px',
+    fontSize: 14,
+    border: '1px solid var(--border)',
     outline: 'none',
-    background: '#1f2437',
-    color: '#fff'
+    background: '#010805',
+    color: 'var(--text-main)'
   },
   button: {
-    padding: '0 16px',
-    borderRadius: 20,
-    border: 'none',
-    background: '#2e7d32',
-    color: '#fff',
-    cursor: 'pointer'
+    padding: '0 14px',
+    border: '1px solid var(--accent-strong)',
+    background: 'rgba(0, 255, 90, 0.12)',
+    color: 'var(--accent)',
+    cursor: 'pointer',
+    fontWeight: 700
   },
   list: {
     display: 'flex',
@@ -197,13 +210,14 @@ const styles = {
     gap: 8
   },
   item: {
-    padding: '14px 12px',
-    background: '#1f2437',
-    borderRadius: 8,
-    cursor: 'pointer'
+    padding: '12px',
+    border: '1px solid rgba(14, 143, 61, 0.6)',
+    cursor: 'pointer',
+    color: 'var(--text-main)',
+    background: 'rgba(3, 16, 11, 0.8)'
   },
   empty: {
-    opacity: 0.6,
+    color: 'var(--text-muted)',
     fontSize: 13
   }
 }

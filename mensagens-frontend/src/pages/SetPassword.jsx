@@ -24,7 +24,7 @@ export default function SetPassword({ onSuccess }) {
       setLoading(true);
       await setPassword({ password });
       onSuccess?.();
-    } catch (err) {
+    } catch {
       setError("Erro ao definir senha");
     } finally {
       setLoading(false);

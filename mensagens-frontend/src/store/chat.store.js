@@ -1,16 +1,16 @@
 import { create } from 'zustand'
 import { getConversations, getMessages } from '../api/chat.api'
-import { encryptMessage } from '../crypto/message' // Import para encriptar
-import { loadConversationKey } from '../crypto/conv-storage' // Import para carregar a chave da conversa
+import { encryptMessage } from '../crypto/message'
+import { loadConversationKey } from '../crypto/conv-storage'
 import { importConversationKey } from '../crypto/conversation'
 
 export const useChatStore = create((set, get) => ({
   conversations: [],
   messages: [],
-  activeConversation: null, // Necessário para saber para quem encriptar
+  activeConversation: null,
   loading: false,
+  pagination: null,
 
-  // Define a conversa atual e limpa mensagens antigas da view se necessário
   setActiveConversation: (conversation) => {
     set({ activeConversation: conversation })
   },
@@ -18,55 +18,48 @@ export const useChatStore = create((set, get) => ({
   fetchConversations: async () => {
     set({ loading: true })
     try {
-      const conversations = await getConversations()
-      set({ conversations, loading: false })
+      const data = await getConversations()
+      // API já extrai o array em chat.api.js
+      set({ conversations: data, loading: false })
     } catch (error) {
       console.error("Erro ao buscar conversas:", error)
-      set({ loading: false })
+      set({ conversations: [], loading: false })
     }
   },
 
   fetchMessages: async conversationId => {
     set({ loading: true })
     try {
-      const messages = await getMessages(conversationId)
-      set({ messages, loading: false })
+      const data = await getMessages(conversationId)
+      // API já extrai o array em chat.api.js
+      set({ messages: data, loading: false })
     } catch (error) {
       console.error("Erro ao buscar mensagens:", error)
-      set({ loading: false })
+      set({ messages: [], loading: false })
     }
   },
 
-  // --- NOVA LÓGICA DE ENVIO COM CRIPTOGRAFIA ---
   sendMessage: async (socket, text) => {
     const { activeConversation } = get()
     
     if (!activeConversation) return
 
     try {
-      // 1. Carrega a chave simétrica salva no IndexedDB
       const sharedKeyBase64 = await loadConversationKey(activeConversation._id)
       
       if (!sharedKeyBase64) {
-        console.error("❌ Erro: Chave da conversa não encontrada. É necessário realizar o handshake.")
+        console.error("❌ Erro: Chave da conversa não encontrada.")
         return
       }
 
-      // 2. Criptografa o texto
-      // O backend espera: { conversationId, cipherText, iv }
       const sharedKey = await importConversationKey(sharedKeyBase64)
       const { cipherText, iv } = await encryptMessage(sharedKey, text)
 
-      // 3. Emite para o backend via Socket
       socket.emit('sendMessage', {
         conversationId: activeConversation._id,
         cipherText,
         iv
       })
-
-      // Nota: Não adicionamos a mensagem no array 'messages' aqui manualmente.
-      // Esperamos o evento 'newMessage' voltar do socket (ou a confirmação) 
-      // para chamar addMessage e garantir que todos recebam.
       
     } catch (error) {
       console.error("Erro ao criptografar/enviar mensagem:", error)
@@ -75,7 +68,6 @@ export const useChatStore = create((set, get) => ({
 
   addMessage: message =>
     set(state => {
-      // Evita duplicatas se a mensagem já estiver na lista (por ID)
       const exists = state.messages.some(m => m._id === message._id)
       if (exists) return state
 
@@ -83,6 +75,13 @@ export const useChatStore = create((set, get) => ({
         messages: [...state.messages, message]
       }
     }),
+
+  markAsRead: messageId =>
+    set(state => ({
+      messages: state.messages.map(m =>
+        m._id === messageId ? { ...m, read: true } : m
+      )
+    })),
 
   updateLastMessage: message =>
     set(state => ({

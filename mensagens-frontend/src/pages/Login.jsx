@@ -26,6 +26,7 @@ export default function Login() {
         email: data.email,
         avatar: data.avatar,
         publicKey: data.publicKey,
+        role: data.role,
         isAdmin: data.isAdmin,
         mustChangePassword: data.mustChangePassword,
       }
@@ -37,7 +38,7 @@ export default function Login() {
       } else {
         navigate('/', { replace: true })
       }
-    } catch (err) {
+    } catch {
       setError('Credenciais inválidas')
     } finally {
       setLoading(false)

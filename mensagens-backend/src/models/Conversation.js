@@ -9,16 +9,31 @@ const ConversationSchema = new mongoose.Schema(
         required: true,
       },
     ],
-
+    isGroup: {
+      type: Boolean,
+      default: false
+    },
+    name: {
+      type: String,
+      default: null
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
     lastMessage: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",
     },
-
     encryptedKeys: {
       type: Map,
       of: String,
       default: {},
+    },
+    keyVersion: {
+      type: Number,
+      default: null,
     },
   },
   {

@@ -1,46 +1,58 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { bootstrapCrypto } from '../crypto/bootstrap'
+import api from '../api/axios'
 
 export const useAuthStore = create(
   persist(
     (set, get) => ({
       user: null,
       token: null,
+      refreshToken: null,
 
-      /**
-       * Login oficial da aplicação
-       * - Persiste user/token
-       * - Inicializa identidade criptográfica (E2EE)
-       */
-      login: async (user, token) => {
-        set({ user, token })
+      login: async (user, token, refreshToken) => {
+        set({ user, token, refreshToken })
 
         try {
           await bootstrapCrypto(user)
         } catch (err) {
           console.error('Erro ao inicializar criptografia', err)
-          // aqui você pode:
-          // - forçar logout
-          // - mostrar aviso
-          // - ou bloquear uso do chat
         }
       },
 
-      /**
-       * Logout
-       * (na próxima fase vamos limpar chaves de sessão)
-       */
       logout: () => {
-        set({ user: null, token: null })
+        set({ user: null, token: null, refreshToken: null })
+      },
+
+      refreshAccessToken: async () => {
+        const { refreshToken } = get()
+        
+        if (!refreshToken) {
+          get().logout()
+          throw new Error('No refresh token')
+        }
+
+        try {
+          const { data } = await api.post('/auth/refresh', { refreshToken })
+          
+          set({ 
+            token: data.token, 
+            refreshToken: data.refreshToken 
+          })
+          
+          return data.token
+        } catch (error) {
+          get().logout()
+          throw error
+        }
       },
     }),
     {
       name: 'auth-storage',
-
       partialize: (state) => ({
         user: state.user,
         token: state.token,
+        refreshToken: state.refreshToken,
       }),
     }
   )

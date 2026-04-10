@@ -48,7 +48,7 @@ export default function AppRoutes() {
         <Route
           path="/admin"
           element={
-            user?.role === 'admin'
+            user?.role === 'admin' || user?.isAdmin === true
               ? <AdminDashboard />
               : <Navigate to="/" replace />
           }

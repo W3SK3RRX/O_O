@@ -1,29 +1,27 @@
 import Message from '../models/Message.js';
 import Conversation from '../models/Conversation.js';
+import log from '../config/logger.js';
 
 export const sendMessage = async (req, res) => {
   try {
     const userId = req.user._id;
-    // FIX: Recebendo payload criptografado do Frontend
-    const { conversationId, cipherText, iv } = req.body;
+    // Usa dados validados ou originais
+    const conversationId = req.validatedBody?.conversationId || req.body.conversationId;
+    const cipherText = req.validatedBody?.cipherText || req.body.cipherText;
+    const iv = req.validatedBody?.iv || req.body.iv;
 
-    if (!conversationId || !cipherText || !iv) {
-      return res.status(400).json({
-        message: "conversationId, cipherText e iv são obrigatórios"
-      });
-    }
+    log.info({ conversationId, userId }, 'Enviando mensagem');
 
-    // Verificar se o usuário pertence à conversa
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: userId,
     });
 
     if (!conversation) {
+      log.warn({ conversationId, userId }, 'Acesso negado à conversa');
       return res.status(403).json({ message: "Acesso negado à conversa" });
     }
 
-    // Criar mensagem com dados criptografados
     const message = await Message.create({
       conversationId,
       sender: userId,
@@ -32,43 +30,60 @@ export const sendMessage = async (req, res) => {
       read: false,
     });
 
-    // Atualizar última mensagem da conversa
     conversation.lastMessage = message._id;
     await conversation.save();
 
-    // Popula dados do remetente para retorno
     await message.populate('sender', 'name email avatar');
 
+    log.info({ messageId: message._id }, 'Mensagem enviada com sucesso');
     return res.status(201).json(message);
   } catch (error) {
-    console.error("Erro sendMessage:", error);
+    log.error({ error }, 'Erro ao enviar mensagem');
     return res.status(500).json({ message: "Erro ao enviar mensagem" });
   }
 };
 
-// FIX: Renomeado de getMessages para getMessagesByConversation
 export const getMessagesByConversation = async (req, res) => {
   try {
     const { conversationId } = req.params;
+    // Usa dados validados ou query original
+    const page = req.validatedQuery?.page || req.query.page || 1;
+    const limit = req.validatedQuery?.limit || req.query.limit || 20;
     const userId = req.user._id;
 
-    // Verificar acesso
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: userId,
     });
 
     if (!conversation) {
+      log.warn({ conversationId, userId }, 'Acesso negado à conversa');
       return res.status(403).json({ message: "Acesso negado" });
     }
 
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
     const messages = await Message.find({ conversationId })
       .populate('sender', 'name email avatar')
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
 
-    res.json(messages);
+    const total = await Message.countDocuments({ conversationId });
+
+    log.info({ conversationId, page, limit, total }, 'Mensagens buscadas');
+
+    res.json({
+      messages,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
   } catch (error) {
-    console.error("Erro getMessages:", error);
+    log.error({ error }, 'Erro ao buscar mensagens');
     res.status(500).json({ message: "Erro ao buscar mensagens" });
   }
 };

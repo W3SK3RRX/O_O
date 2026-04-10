@@ -119,7 +119,8 @@ const styles = {
     justifyContent: 'center'
   },
   shell: {
-    width: 'min(100%, 940px)',
+    width: '100%',
+    maxWidth: 940,
     border: '1px solid var(--border)',
     overflow: 'hidden',
     display: 'flex',

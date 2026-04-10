@@ -17,13 +17,14 @@ const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: process.env.CORS_ORIGIN?.split(',') || ['https://o_o.infinyforge.com.br'],
+    credentials: true
   },
 });
 
-/**
- * Middleware de autenticação do Socket.IO
- */
+// Mapa de usuários online: userId -> { socketId, email, name, lastSeen }
+export const onlineUsers = new Map();
+
 io.use(socketAuth);
 
 /**
@@ -31,6 +32,23 @@ io.use(socketAuth);
  */
 io.on("connection", (socket) => {
   console.log("Socket conectado:", socket.user.email);
+
+  // Adiciona usuário à lista de online
+  onlineUsers.set(socket.user._id.toString(), {
+    socketId: socket.id,
+    userId: socket.user._id,
+    email: socket.user.email,
+    name: socket.user.name,
+    lastSeen: new Date(),
+    connectedAt: new Date()
+  });
+
+  // Notifica admin sobre novo usuário online
+  io.emit("userOnline", {
+    userId: socket.user._id,
+    name: socket.user.name,
+    email: socket.user.email
+  });
 
   /**
    * Entrar em uma conversa (room)
@@ -93,11 +111,108 @@ io.on("connection", (socket) => {
    * Confirma leitura
    */
   socket.on("readMessage", async (messageId) => {
+    const message = await Message.findById(messageId);
+    if (!message) return;
+    
     await Message.findByIdAndUpdate(messageId, { read: true });
+    
+    // Notifica quem enviou que a mensagem foi lida
+    io.to(message.conversationId.toString()).emit("messageRead", {
+      messageId,
+      readBy: socket.user._id,
+      readAt: new Date()
+    });
+  });
+
+  /**
+   * Marcar todas mensagens de uma conversa como lidas
+   */
+  socket.on("markConversationRead", async (conversationId) => {
+    await Message.updateMany(
+      { conversationId, read: false, sender: { $ne: socket.user._id } },
+      { $set: { read: true } }
+    );
+    
+    io.to(conversationId).emit("conversationRead", {
+      conversationId,
+      readBy: socket.user._id,
+      readAt: new Date()
+    });
+  });
+
+  /**
+   * Indicador de digitação
+   */
+  socket.on("typing", ({ conversationId, isTyping }) => {
+    socket.to(conversationId).emit("userTyping", {
+      conversationId,
+      userId: socket.user._id,
+      name: socket.user.name,
+      isTyping
+    });
+  });
+
+  /**
+   * Apagar mensagem (delete lógico)
+   */
+  socket.on("deleteMessage", async (messageId) => {
+    const message = await Message.findById(messageId);
+    if (!message) return;
+    
+    // Apenas quem enviou pode deletar
+    if (message.sender.toString() !== socket.user._id.toString()) return;
+    
+    await Message.findByIdAndUpdate(messageId, { 
+      deleted: true,
+      cipherText: '[mensagem apagada]',
+      iv: ''
+    });
+    
+    io.to(message.conversationId.toString()).emit("messageDeleted", {
+      messageId
+    });
+  });
+
+  /**
+   * Editar mensagem
+   */
+  socket.on("editMessage", async ({ messageId, cipherText, iv }) => {
+    const message = await Message.findById(messageId);
+    if (!message) return;
+    
+    // Apenas quem enviou pode editar
+    if (message.sender.toString() !== socket.user._id.toString()) return;
+    
+    await Message.findByIdAndUpdate(messageId, { 
+      edited: true,
+      cipherText,
+      iv
+    });
+    
+    io.to(message.conversationId.toString()).emit("messageEdited", {
+      messageId,
+      cipherText,
+      iv,
+      editedAt: new Date()
+    });
   });
 
   socket.on("disconnect", () => {
     console.log("Socket desconectado:", socket.user.email);
+    
+    const userId = socket.user._id.toString();
+    const userData = onlineUsers.get(userId);
+    
+    if (userData) {
+      userData.lastSeen = new Date();
+      onlineUsers.set(userId, userData);
+    }
+    
+    // Notifica admin sobre usuário offline
+    io.emit("userOffline", {
+      userId: socket.user._id,
+      lastSeen: new Date()
+    });
   });
 });
 

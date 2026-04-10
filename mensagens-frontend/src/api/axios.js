@@ -16,17 +16,24 @@ api.interceptors.request.use(config => {
   return config
 })
 
-// 🔥 Response: token expirado ou inválido
+// 🔥 Response: tratamento de erros global
 api.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401) {
       const { logout } = useAuthStore.getState()
       logout()
-
-      // redireciona SEM usar hook
+      
+      // Mostrar erro via toast/alert (sem dependência de contexto)
+      const message = error.response?.data?.message || 'Sessão expirada'
+      alert(message)
+      
       window.location.href = '/login'
+      return Promise.reject(error)
     }
+
+    const message = error.response?.data?.message || 'Erro de conexão'
+    alert(message)
 
     return Promise.reject(error)
   }

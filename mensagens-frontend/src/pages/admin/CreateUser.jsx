@@ -13,18 +13,19 @@ export default function CreateUser() {
 
   const handleSubmit = async e => {
     e.preventDefault()
+    setError(null)
+    setSuccess(null)
 
     if (password.length < 6) {
-      return setError('A senha deve ter no mínimo 6 caracteres')
+      return setError('erro: senha deve ter no mínimo 6 caracteres')
     }
 
     if (password !== confirm) {
-      return setError('As senhas não coincidem')
+      return setError('erro: as senhas não coincidem')
     }
 
     try {
       setLoading(true)
-      setError(null)
 
       await createUser({
         name,
@@ -33,7 +34,7 @@ export default function CreateUser() {
         role
       })
 
-      setSuccess('Usuário criado com sucesso')
+      setSuccess('sucesso: usuário criado')
 
       setName('')
       setEmail('')
@@ -41,98 +42,123 @@ export default function CreateUser() {
       setPassword('')
       setConfirm('')
     } catch {
-      setError('Erro ao criar usuário')
+      setError('erro: falha ao criar usuário')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} style={styles.form}>
-      <strong>Criar Usuário</strong>
+    <div style={styles.container}>
+      <div style={styles.sectionTitle}>{'>'} criar novo usuário</div>
 
-      {error && <p style={styles.error}>{error}</p>}
-      {success && <p style={styles.success}>{success}</p>}
+      <form onSubmit={handleSubmit} style={styles.form}>
+        {error && <p style={styles.error}>{'>'} {error}</p>}
+        {success && <p style={styles.success}>{'>'} {success}</p>}
 
-      <input
-        style={styles.input}
-        placeholder="Nome"
-        value={name}
-        onChange={e => setName(e.target.value)}
-        required
-      />
+        <input
+          style={styles.input}
+          placeholder="nome"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          required
+        />
 
-      <input
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        required
-      />
+        <input
+          style={styles.input}
+          type="email"
+          placeholder="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+        />
 
-      <input
-        style={styles.input}
-        type="password"
-        placeholder="Senha inicial"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        required
-      />
+        <input
+          style={styles.input}
+          type="password"
+          placeholder="senha inicial"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+        />
 
-      <input
-        style={styles.input}
-        type="password"
-        placeholder="Confirmar senha"
-        value={confirm}
-        onChange={e => setConfirm(e.target.value)}
-        required
-      />
+        <input
+          style={styles.input}
+          type="password"
+          placeholder="confirmar senha"
+          value={confirm}
+          onChange={e => setConfirm(e.target.value)}
+          required
+        />
 
-      <select
-        style={styles.input}
-        value={role}
-        onChange={e => setRole(e.target.value)}
-      >
-        <option value="user">Usuário</option>
-        <option value="admin">Admin</option>
-      </select>
+        <select
+          style={styles.select}
+          value={role}
+          onChange={e => setRole(e.target.value)}
+        >
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+        </select>
 
-      <button style={styles.button} disabled={loading}>
-        {loading ? 'Criando...' : 'Criar Usuário'}
-      </button>
-    </form>
+        <button style={styles.button} disabled={loading}>
+          {loading ? '[CRIANDO...]' : '[CRIAR USUÁRIO]'}
+        </button>
+      </form>
+    </div>
   )
 }
 
 const styles = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10
+  },
+  sectionTitle: {
+    fontSize: 12,
+    color: 'var(--accent)'
+  },
   form: {
     display: 'flex',
     flexDirection: 'column',
     gap: 10
   },
   input: {
-    padding: '12px 16px',
-    fontSize: 16,
-    borderRadius: 20,
-    border: 'none',
+    width: '100%',
+    padding: '12px',
+    border: '1px solid var(--border)',
     outline: 'none',
-    background: '#1f2437',
-    color: '#fff'
+    background: '#010805',
+    color: 'var(--text-main)',
+    fontSize: 14
+  },
+  select: {
+    width: '100%',
+    padding: '12px',
+    border: '1px solid var(--border)',
+    outline: 'none',
+    background: '#010805',
+    color: 'var(--text-main)',
+    fontSize: 14,
+    cursor: 'pointer'
   },
   button: {
     padding: '12px',
-    borderRadius: 20,
-    border: 'none',
-    background: '#2e7d32',
-    color: '#fff',
-    cursor: 'pointer'
+    border: '1px solid var(--accent-strong)',
+    background: 'rgba(0, 255, 90, 0.12)',
+    color: 'var(--accent)',
+    fontWeight: 700,
+    cursor: 'pointer',
+    fontSize: 14
   },
   error: {
-    color: '#ff5252',
-    fontSize: 14
+    color: 'var(--danger)',
+    fontSize: 12,
+    margin: 0
   },
   success: {
-    color: '#4caf50',
-    fontSize: 14
+    color: 'var(--accent)',
+    fontSize: 12,
+    margin: 0
   }
 }

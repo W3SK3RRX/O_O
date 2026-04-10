@@ -19,6 +19,7 @@ const createUsers = async () => {
         name: 'Administrador',
         email: adminEmail,
         password: '123', // A senha será hashada automaticamente pelo Model
+        role: 'admin',
         isAdmin: true,
         avatar: '',
         publicKey: null // Será gerada no primeiro login pelo Frontend

@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: mensagens-db
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: mensagens
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - mensagens-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./mensagens-backend
+      dockerfile: Dockerfile
+    container_name: mensagens-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGO_URI: mongodb://mongodb:27017/mensagens
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CORS_ORIGIN: https://o_o.infinyforge.com.br
+      LOG_LEVEL: info
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+    networks:
+      - mensagens-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./mensagens-frontend
+      dockerfile: Dockerfile
+    container_name: mensagens-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: https://o_o.infinyforge.com.br
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - mensagens-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  mensagens-network:
+    driver: bridge

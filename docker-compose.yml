@@ -47,7 +47,7 @@ services:
     environment:
       VITE_API_URL: https://o_o.infinyforge.com.br
     ports:
-      - "80:80"
+      - "3001:80"
     depends_on:
       - backend
     networks:

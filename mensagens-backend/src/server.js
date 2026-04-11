@@ -202,17 +202,18 @@ io.on("connection", (socket) => {
     
     const userId = socket.user._id.toString();
     const userData = onlineUsers.get(userId);
-    
-    if (userData) {
-      userData.lastSeen = new Date();
-      onlineUsers.set(userId, userData);
+
+    // Remove apenas se o socket desconectado for o socket ativo do usuário
+    // (evita remover conexão nova em casos de reconexão rápida/múltiplas abas)
+    if (userData?.socketId === socket.id) {
+      onlineUsers.delete(userId);
+
+      // Notifica admin sobre usuário offline
+      io.emit("userOffline", {
+        userId: socket.user._id,
+        lastSeen: new Date()
+      });
     }
-    
-    // Notifica admin sobre usuário offline
-    io.emit("userOffline", {
-      userId: socket.user._id,
-      lastSeen: new Date()
-    });
   });
 });
 

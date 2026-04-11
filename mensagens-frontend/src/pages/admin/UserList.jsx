@@ -120,7 +120,7 @@ export default function UserList() {
             <div style={styles.cardContent}>
               <div style={styles.name}>root@user:~$ {user.name}</div>
               <div style={styles.meta}>
-                email: {user.email} • role: {user.role || 'user'} • status: {user.active ? 'ONLINE' : 'OFFLINE'}
+                email: {user.email} • role: {user.role || 'user'} • status: {user.active ? 'ATIVO' : 'INATIVO'}
               </div>
             </div>
           )}

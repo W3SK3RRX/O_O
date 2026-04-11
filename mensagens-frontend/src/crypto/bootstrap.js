@@ -1,8 +1,11 @@
 import { updatePublicKey } from '../api/user.api'
 import {
   getPrivateKey,
+  getPublicKey,
+  getKeyOwner,
   savePrivateKey,
   savePublicKey,
+  saveKeyOwner,
 } from './storage'
 import {
   generateKeyPair,
@@ -16,17 +19,29 @@ export async function bootstrapCrypto(user) {
   }
 
   const existingPrivateKey = await getPrivateKey()
+  const existingPublicKey = await getPublicKey()
+  const existingOwnerId = await getKeyOwner()
+  const hasValidLocalKeys =
+    existingPrivateKey &&
+    existingPublicKey &&
+    existingOwnerId === user._id
 
-  if (existingPrivateKey) return
+  let publicKeyBase64 = existingPublicKey
 
-  const { publicKey, privateKey } = await generateKeyPair()
+  if (!hasValidLocalKeys) {
+    const { publicKey, privateKey } = await generateKeyPair()
 
-  const publicKeyBase64 = await exportPublicKey(publicKey)
-  const privateKeyBase64 = await exportPrivateKey(privateKey)
+    publicKeyBase64 = await exportPublicKey(publicKey)
+    const privateKeyBase64 = await exportPrivateKey(privateKey)
 
-  await savePrivateKey(privateKeyBase64)
-  await savePublicKey(publicKeyBase64)
+    await savePrivateKey(privateKeyBase64)
+    await savePublicKey(publicKeyBase64)
+    await saveKeyOwner(user._id)
+  }
 
-  // backend só recebe a chave pública
-  await updatePublicKey(publicKeyBase64)
+  // Sincroniza no backend sempre que o usuário não tiver chave registrada
+  // ou quando houve rotação/troca de chave local.
+  if (publicKeyBase64 && user.publicKey !== publicKeyBase64) {
+    await updatePublicKey(publicKeyBase64)
+  }
 }

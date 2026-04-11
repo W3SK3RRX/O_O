@@ -97,6 +97,11 @@ export async function getPublicKey() {
   return keys ? keys.publicKey : null
 }
 
+export async function getKeyOwner() {
+  const keys = await loadKeys()
+  return keys ? keys.userId || null : null
+}
+
 // FIX: Adicionada função para salvar apenas a chave privada (mantendo a pública se existir)
 export async function savePrivateKey(privateKey) {
   const currentKeys = (await loadKeys()) || {}
@@ -108,5 +113,11 @@ export async function savePrivateKey(privateKey) {
 export async function savePublicKey(publicKey) {
   const currentKeys = (await loadKeys()) || {}
   currentKeys.publicKey = publicKey
+  return saveKeys(currentKeys)
+}
+
+export async function saveKeyOwner(userId) {
+  const currentKeys = (await loadKeys()) || {}
+  currentKeys.userId = userId
   return saveKeys(currentKeys)
 }

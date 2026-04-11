@@ -11,7 +11,7 @@ services:
     volumes:
       - mongodb_data:/data/db
     networks:
-      - mensagens-network
+      - o_o_mensagens-network
 
   # Backend API
   backend:
@@ -33,7 +33,15 @@ services:
     depends_on:
       - mongodb
     networks:
-      - mensagens-network
+      - o_o_mensagens-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`o_o.infinityforge.com.br`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+      - "traefik.docker.network=o_o_mensagens-network"
 
   # Frontend
   frontend:
@@ -49,28 +57,19 @@ services:
     depends_on:
       - backend
     networks:
-      - mensagens-network
-
-  # Nginx Proxy Reverso
-  nginx:
-    image: nginx:alpine
-    container_name: mensagens-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/letsencrypt/live/o_o.infinityforge.com.br:ro
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - mensagens-network
+      - o_o_mensagens-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`o_o.infinityforge.com.br`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.docker.network=o_o_mensagens-network"
 
 volumes:
   mongodb_data:
 
 networks:
-  mensagens-network:
-    driver: bridge
+  o_o_mensagens-network:
+    external: true

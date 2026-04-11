@@ -12,6 +12,11 @@ import adminRoutes from "./routes/admin.routes.js";
 const app = express();
 
 /**
+ * Trust proxy para funcionar atrás do Traefik
+ */
+app.set('trust proxy', 1);
+
+/**
  * CORS configurado com origens permitidas
  */
 const corsOptions = {

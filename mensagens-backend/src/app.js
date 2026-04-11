@@ -46,11 +46,11 @@ app.get("/health", (req, res) => {
  * Rotas da API
  * (serão criadas posteriormente)
  */
-app.use("/auth", authLimiter, authRoutes);
-app.use("/users", userRoutes);
-app.use("/conversations", conversationRoutes);
-app.use("/messages", messageLimiter, messageRoutes);
-app.use("/admin", adminRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/conversations", conversationRoutes);
+app.use("/api/messages", messageLimiter, messageRoutes);
+app.use("/api/admin", adminRoutes);
 
 /**
  * Middleware de tratamento de erros

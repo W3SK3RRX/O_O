@@ -35,5 +35,6 @@ export const toggleUserStatus = async (id, active) => {
 }
 
 export const resetUserPassword = async id => {
-  await api.post(`/admin/users/${id}/reset-password`)
+  const { data } = await api.post(`/admin/users/${id}/reset-password`)
+  return data
 }

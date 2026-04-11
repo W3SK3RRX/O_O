@@ -72,4 +72,4 @@ volumes:
 
 networks:
   o_o_mensagens-network:
-    external: true
+    driver: bridge

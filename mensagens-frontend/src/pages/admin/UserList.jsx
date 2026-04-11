@@ -31,14 +31,24 @@ export default function UserList() {
   }, [loadUsers])
 
   const toggleStatus = async user => {
-    await toggleUserStatus(user._id, !user.active)
-    await loadUsers()
+    try {
+      await toggleUserStatus(user._id, !user.active)
+      await loadUsers()
+    } catch (error) {
+      console.error('Erro ao alterar status do usuário:', error)
+      alert(error?.response?.data?.message || 'Erro ao alterar status do usuário')
+    }
   }
 
   const resetPassword = async userId => {
     if (confirm('Resetar senha do usuário?')) {
-      await resetUserPassword(userId)
-      alert('Senha resetada com sucesso!')
+      try {
+        const data = await resetUserPassword(userId)
+        alert(`Senha resetada com sucesso!\nNova senha: ${data?.newPassword || '(não retornada)'}`)
+      } catch (error) {
+        console.error('Erro ao resetar senha:', error)
+        alert(error?.response?.data?.message || 'Erro ao resetar senha')
+      }
     }
   }
 

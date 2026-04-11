@@ -8,15 +8,22 @@ export async function getConversations() {
   
   // Se ainda for objeto com outras propriedades, tenta encontrar o array
   if (data && typeof data === 'object' && !Array.isArray(data)) {
-    data = data.conversations || Object.values(data).find(v => Array.isArray(v)) || []
+    // Verifica todas as propriedades do objeto
+    const arrayProp = Object.keys(data).find(k => Array.isArray(data[k]))
+    data = arrayProp ? data[arrayProp] : []
   }
+  
+  // Garante que sempre retorne array
+  data = Array.isArray(data) ? data : []
   
   console.log('getConversations response:', {
     hasData: Array.isArray(data),
     count: data?.length,
     firstConversationKeys: data?.[0]?.encryptedKeys,
     firstConversationId: data?.[0]?._id,
-    firstConversationKeyVersion: data?.[0]?.keyVersion
+    firstConversationKeyVersion: data?.[0]?.keyVersion,
+    rawType: typeof res.data,
+    rawKeys: res.data ? Object.keys(res.data) : []
   })
   
   return data
@@ -30,8 +37,12 @@ export async function getMessages(conversationId) {
   
   // Se ainda for objeto com outras propriedades, tenta encontrar o array
   if (data && typeof data === 'object' && !Array.isArray(data)) {
-    data = data.messages || Object.values(data).find(v => Array.isArray(v)) || []
+    const arrayProp = Object.keys(data).find(k => Array.isArray(data[k]))
+    data = arrayProp ? data[arrayProp] : []
   }
+  
+  // Garante que sempre retorne array
+  data = Array.isArray(data) ? data : []
   
   console.log('getMessages response:', {
     conversationId,

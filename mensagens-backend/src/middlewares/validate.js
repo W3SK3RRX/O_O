@@ -8,6 +8,10 @@ import log from '../config/logger.js';
 export const validate = (schema, source = 'body') => {
   return (req, res, next) => {
     try {
+      if (!schema) {
+        return next(); // Sem schema, pula validação
+      }
+      
       let data;
       
       if (source === 'body') {
@@ -32,7 +36,9 @@ export const validate = (schema, source = 'body') => {
       
       next();
     } catch (error) {
-      if (error.name === 'ZodError') {
+      log.error({ error, source }, 'Erro na validação');
+      
+      if (error.name === 'ZodError' && error.errors) {
         const messages = error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
         return res.status(400).json({ 
           message: 'Dados inválidos', 
@@ -40,8 +46,10 @@ export const validate = (schema, source = 'body') => {
         });
       }
       
-      log.error({ error }, 'Erro na validação');
-      next(error);
+      // Retorna erro genérico se não for ZodError
+      return res.status(400).json({ 
+        message: 'Erro na validação dos dados' 
+      });
     }
   };
 };

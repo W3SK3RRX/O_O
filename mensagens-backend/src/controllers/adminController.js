@@ -1,7 +1,6 @@
 import User from '../models/User.js';
 import Message from '../models/Message.js';
 import Conversation from '../models/Conversation.js';
-import bcrypt from 'bcryptjs';
 import { onlineUsers } from '../server.js';
 
 export const getDashboardStats = async (req, res) => {
@@ -121,18 +120,30 @@ export const updateUser = async (req, res) => {
 
 export const toggleUserStatus = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id);
+        const { active } = req.body;
+
+        if (typeof active !== 'boolean') {
+            return res.status(400).json({ message: 'Campo "active" deve ser booleano' });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { active },
+            { new: true, runValidators: true }
+        );
 
         if (!user) {
             return res.status(404).json({ message: 'Usuário não encontrado' });
         }
 
-        user.active = req.body.active;
-        await user.save();
+        if (!active) {
+            onlineUsers.delete(user._id.toString());
+        }
 
         res.json({ message: `Usuário ${user.active ? 'ativado' : 'desativado'}` });
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao alterar status do usuário' });
+        console.error(error);
+        res.status(500).json({ message: 'Erro ao alterar status do usuário', error: error.message });
     }
 };
 
@@ -145,13 +156,14 @@ export const resetUserPassword = async (req, res) => {
         }
 
         const newPassword = Math.random().toString(36).slice(-8);
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(newPassword, salt);
+        // Deixa o hash para o hook pre('save') do model
+        user.password = newPassword;
         await user.save();
 
         res.json({ message: 'Senha resetada com sucesso', newPassword });
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao resetar senha' });
+        console.error(error);
+        res.status(500).json({ message: 'Erro ao resetar senha', error: error.message });
     }
 };
 

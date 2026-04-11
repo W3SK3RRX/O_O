@@ -8,6 +8,8 @@ import {
     getAllUsers, 
     createUser, 
     updateUser,
+    toggleUserStatus,
+    resetUserPassword,
     deleteUser 
 } from '../controllers/adminController.js';
 
@@ -21,6 +23,8 @@ router.get('/online', getOnlineUsers);
 router.get('/users', getAllUsers);
 router.post('/users', createUser);
 router.patch('/users/:id', updateUser);
+router.patch('/users/:id/status', toggleUserStatus);
+router.post('/users/:id/reset-password', resetUserPassword);
 router.delete('/users/:id', deleteUser);
 
 export default router;

@@ -2,7 +2,14 @@ import api from './api'
 
 export async function getConversations() {
   const res = await api.get('/conversations')
-  const data = res.data.conversations || res.data
+  
+  // Extrai conversas - pode vir como { conversations: [...] } ou diretamente [...]
+  let data = res.data.conversations || res.data
+  
+  // Se ainda for objeto com outras propriedades, tenta encontrar o array
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    data = data.conversations || Object.values(data).find(v => Array.isArray(v)) || []
+  }
   
   console.log('getConversations response:', {
     hasData: Array.isArray(data),
@@ -17,7 +24,14 @@ export async function getConversations() {
 
 export async function getMessages(conversationId) {
   const res = await api.get(`/messages/${conversationId}`)
-  const data = res.data.messages || res.data
+  
+  // Extrai mensagens - pode vir como { messages: [...] } ou diretamente [...]
+  let data = res.data.messages || res.data
+  
+  // Se ainda for objeto com outras propriedades, tenta encontrar o array
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    data = data.messages || Object.values(data).find(v => Array.isArray(v)) || []
+  }
   
   console.log('getMessages response:', {
     conversationId,

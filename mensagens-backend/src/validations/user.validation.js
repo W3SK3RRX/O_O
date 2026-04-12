@@ -24,6 +24,11 @@ export const publicKeySchema = z.object({
   publicKey: z.string().min(1, 'Chave pública é obrigatória'),
 });
 
+export const keyPairSchema = z.object({
+  publicKey: z.string().min(1, 'Chave pública é obrigatória'),
+  privateKeyBackup: z.string().min(1, 'Backup da chave privada é obrigatório'),
+});
+
 // Schema para alteração de senha
 export const changePasswordSchema = z.object({
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),

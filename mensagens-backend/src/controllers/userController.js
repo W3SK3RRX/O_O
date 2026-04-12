@@ -53,6 +53,27 @@ export const updatePublicKey = async (req, res) => {
   }
 };
 
+export const updateKeyPair = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const {
+      publicKey,
+      privateKeyBackup,
+    } = req.validatedBody || req.body;
+
+    await User.findByIdAndUpdate(userId, {
+      publicKey,
+      privateKeyBackup,
+    });
+
+    log.info({ userId }, 'Par de chaves atualizado');
+    return res.status(200).json({ message: "Par de chaves atualizado com sucesso" });
+  } catch (error) {
+    log.error({ error }, 'Erro ao atualizar par de chaves');
+    return res.status(500).json({ message: "Erro ao atualizar par de chaves" });
+  }
+};
+
 export const changePassword = async (req, res) => {
   try {
     const password = req.validatedBody?.password || req.body.password;

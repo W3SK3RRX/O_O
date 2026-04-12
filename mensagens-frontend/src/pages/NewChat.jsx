@@ -71,7 +71,7 @@ export default function NewChat() {
       const existingEncryptedKey = conversation?.encryptedKeys?.[user._id]
       const existingVersion = conversation?.keyVersion
 
-      if (existingEncryptedKey && existingVersion) {
+      if (existingEncryptedKey) {
         const privateKeyBase64 = await getPrivateKey()
 
         if (!privateKeyBase64) {
@@ -81,7 +81,17 @@ export default function NewChat() {
         const privateKey = await importPrivateKey(privateKeyBase64)
         const conversationKeyBase64 = await decryptWithPrivateKey(privateKey, existingEncryptedKey)
 
-        await saveConversationKey(conversation._id, conversationKeyBase64, existingVersion)
+        const resolvedVersion = existingVersion ?? Date.now()
+
+        if (!existingVersion) {
+          await saveConversationKeys(
+            conversation._id,
+            conversation.encryptedKeys || {},
+            resolvedVersion
+          )
+        }
+
+        await saveConversationKey(conversation._id, conversationKeyBase64, resolvedVersion)
         navigate(`/chat/${conversation._id}`)
         return
       }

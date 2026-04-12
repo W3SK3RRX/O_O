@@ -1,4 +1,4 @@
-import { updateKeyPair, updatePublicKey } from '../api/user.api'
+import { updateKeyPair } from '../api/user.api'
 import {
   getPrivateKey,
   getPublicKey,
@@ -28,11 +28,28 @@ export async function bootstrapCrypto(user) {
 
   let publicKeyBase64 = existingPublicKey
 
+  if (hasValidLocalKeys) {
+    const shouldSyncKeyPair =
+      user.publicKey !== existingPublicKey || !user.privateKeyBackup
+
+    if (shouldSyncKeyPair) {
+      await updateKeyPair(existingPublicKey, existingPrivateKey)
+    }
+
+    return
+  }
+
   if (!hasValidLocalKeys && user.privateKeyBackup && user.publicKey) {
     await savePrivateKey(user.privateKeyBackup)
     await savePublicKey(user.publicKey)
     await saveKeyOwner(user._id)
     return
+  }
+
+  if (!hasValidLocalKeys && user.publicKey && !user.privateKeyBackup) {
+    throw new Error(
+      'Backup da chave privada não encontrado. Faça login no dispositivo original para sincronizar as chaves.'
+    )
   }
 
   if (!hasValidLocalKeys) {
@@ -46,12 +63,5 @@ export async function bootstrapCrypto(user) {
     await saveKeyOwner(user._id)
 
     await updateKeyPair(publicKeyBase64, privateKeyBase64)
-    return
-  }
-
-  // Sincroniza no backend sempre que o usuário não tiver chave registrada
-  // ou quando houve rotação/troca de chave local.
-  if (publicKeyBase64 && user.publicKey !== publicKeyBase64) {
-    await updatePublicKey(publicKeyBase64)
   }
 }

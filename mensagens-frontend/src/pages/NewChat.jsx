@@ -46,15 +46,27 @@ export default function NewChat() {
     })
   }
 
+  const resolveTargetUser = async targetUser => {
+    if (targetUser.publicKey) return targetUser
+
+    const fallbackSearch = targetUser.email || targetUser.name
+    if (!fallbackSearch) return targetUser
+
+    const refreshedUsers = await searchUsers(fallbackSearch)
+    return refreshedUsers.find(u => u._id === targetUser._id) || targetUser
+  }
+
   const startConversation = async targetUser => {
-    if (!targetUser.publicKey) {
-      alert('Este usuário ainda não inicializou a criptografia. Peça para ele fazer login primeiro.')
-      return
-    }
-    
     setLoading(true)
     try {
-      const conversation = await createConversation(targetUser._id)
+      const targetUserWithKey = await resolveTargetUser(targetUser)
+
+      if (!targetUserWithKey.publicKey) {
+        alert('Este usuário ainda não inicializou a criptografia. Peça para ele fazer login primeiro.')
+        return
+      }
+
+      const conversation = await createConversation(targetUserWithKey._id)
 
       const conversationKey = await generateConversationKey()
       const conversationKeyBase64 = await exportConversationKey(conversationKey)
@@ -64,7 +76,7 @@ export default function NewChat() {
       const localPublicKey = await getPublicKey()
       const participants = [
         { ...user, publicKey: user.publicKey || localPublicKey },
-        targetUser,
+        targetUserWithKey,
       ]
 
       for (const participant of participants) {

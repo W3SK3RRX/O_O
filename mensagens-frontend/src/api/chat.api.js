@@ -29,8 +29,10 @@ export async function getConversations() {
   return data
 }
 
-export async function getMessages(conversationId, page = 1, limit = 200) {
-  const res = await api.get(`/messages/${conversationId}?page=${page}&limit=${limit}`)
+export async function getMessages(conversationId, page = 1, limit = 100) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 1, 1), 100)
+  const safePage = Math.max(Number(page) || 1, 1)
+  const res = await api.get(`/messages/${conversationId}?page=${safePage}&limit=${safeLimit}`)
   
   // Extrai mensagens - pode vir como { messages: [...] } ou diretamente [...]
   let data = res.data.messages || res.data
@@ -47,6 +49,8 @@ export async function getMessages(conversationId, page = 1, limit = 200) {
   
   console.log('getMessages response:', {
     conversationId,
+    page: safePage,
+    limit: safeLimit,
     hasData: Array.isArray(data),
     count: data?.length,
     firstMessageHasCipher: !!data?.[0]?.cipherText,

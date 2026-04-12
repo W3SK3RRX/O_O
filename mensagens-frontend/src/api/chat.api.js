@@ -29,8 +29,8 @@ export async function getConversations() {
   return data
 }
 
-export async function getMessages(conversationId) {
-  const res = await api.get(`/messages/${conversationId}`)
+export async function getMessages(conversationId, page = 1, limit = 200) {
+  const res = await api.get(`/messages/${conversationId}?page=${page}&limit=${limit}`)
   
   // Extrai mensagens - pode vir como { messages: [...] } ou diretamente [...]
   let data = res.data.messages || res.data
@@ -43,6 +43,7 @@ export async function getMessages(conversationId) {
   
   // Garante que sempre retorne array
   data = Array.isArray(data) ? data : []
+  data = [...data].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
   
   console.log('getMessages response:', {
     conversationId,

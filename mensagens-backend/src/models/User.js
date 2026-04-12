@@ -23,6 +23,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  privateKeyBackup: {
+    type: String,
+    default: null
+  },
   role: {
     type: String,
     enum: ['user', 'admin'],

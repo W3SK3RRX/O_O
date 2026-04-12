@@ -20,18 +20,20 @@ export default function Login() {
     try {
       const data = await loginRequest(email, password)
       const token = data.token
+      const refreshToken = data.refreshToken
       const user = {
         _id: data._id,
         name: data.name,
         email: data.email,
         avatar: data.avatar,
         publicKey: data.publicKey,
+        privateKeyBackup: data.privateKeyBackup,
         role: data.role,
         isAdmin: data.isAdmin,
         mustChangePassword: data.mustChangePassword,
       }
 
-      await login(user, token)
+      await login(user, token, refreshToken)
 
       if (user.mustChangePassword) {
         navigate('/change-password', { replace: true })

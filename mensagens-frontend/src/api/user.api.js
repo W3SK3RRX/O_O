@@ -20,6 +20,14 @@ export const updatePublicKey = async (publicKey) => {
   return data;
 };
 
+export const updateKeyPair = async (publicKey, privateKeyBackup) => {
+  const { data } = await api.patch('/users/key-pair', {
+    publicKey,
+    privateKeyBackup
+  });
+  return data;
+};
+
 // Mantivemos o getProfile pois o AuthContext precisa dele para carregar o usuário
 export const getProfile = async () => {
   const { data } = await api.get('/users/profile');

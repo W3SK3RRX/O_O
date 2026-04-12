@@ -12,10 +12,10 @@ import {
   generateConversationKey,
   exportConversationKey
 } from '../crypto/conversation'
-import { encryptWithPublicKey } from '../crypto/envelope'
-import { importPublicKey } from '../crypto/keys'
+import { decryptWithPrivateKey, encryptWithPublicKey } from '../crypto/envelope'
+import { importPrivateKey, importPublicKey } from '../crypto/keys'
 import { saveConversationKey } from '../crypto/conv-storage'
-import { getPublicKey } from '../crypto/storage'
+import { getPrivateKey, getPublicKey } from '../crypto/storage'
 
 export default function NewChat() {
   const [mode, setMode] = useState('chat') // 'chat' ou 'group'
@@ -68,6 +68,34 @@ export default function NewChat() {
 
       const conversation = await createConversation(targetUserWithKey._id)
 
+      const existingEncryptedKey = conversation?.encryptedKeys?.[user._id]
+      const existingVersion = conversation?.keyVersion
+
+      if (existingEncryptedKey) {
+        const privateKeyBase64 = await getPrivateKey()
+
+        if (!privateKeyBase64) {
+          throw new Error('Chave privada local não encontrada para descriptografar conversa existente')
+        }
+
+        const privateKey = await importPrivateKey(privateKeyBase64)
+        const conversationKeyBase64 = await decryptWithPrivateKey(privateKey, existingEncryptedKey)
+
+        const resolvedVersion = existingVersion ?? Date.now()
+
+        if (!existingVersion) {
+          await saveConversationKeys(
+            conversation._id,
+            conversation.encryptedKeys || {},
+            resolvedVersion
+          )
+        }
+
+        await saveConversationKey(conversation._id, conversationKeyBase64, resolvedVersion)
+        navigate(`/chat/${conversation._id}`)
+        return
+      }
+
       const conversationKey = await generateConversationKey()
       const conversationKeyBase64 = await exportConversationKey(conversationKey)
 
@@ -88,8 +116,9 @@ export default function NewChat() {
         encryptedKeys[participant._id] = await encryptWithPublicKey(publicKey, conversationKeyBase64)
       }
 
-      await saveConversationKeys(conversation._id, encryptedKeys, Date.now())
-      await saveConversationKey(conversation._id, conversationKeyBase64, Date.now())
+      const keyVersion = Date.now()
+      await saveConversationKeys(conversation._id, encryptedKeys, keyVersion)
+      await saveConversationKey(conversation._id, conversationKeyBase64, keyVersion)
 
       navigate(`/chat/${conversation._id}`)
     } catch (err) {

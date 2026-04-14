@@ -5,6 +5,7 @@ import {
   updatePublicKey,
   updateKeyPair,
   changePassword,
+  getPrivateKeyBackup,
 } from '../controllers/userController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validate } from '../middlewares/validate.js';
@@ -24,5 +25,6 @@ router.get('/profile', getProfile);
 router.patch('/public-key', validate(publicKeySchema), updatePublicKey);
 router.patch('/key-pair', validate(keyPairSchema), updateKeyPair);
 router.post('/change-password', validate(changePasswordSchema), changePassword);
+router.get('/key-backup', getPrivateKeyBackup);
 
 export default router;

@@ -33,3 +33,7 @@ export const getProfile = async () => {
   const { data } = await api.get('/users/profile');
   return data;
 };
+export const getKeyBackup = async () => {
+  const { data } = await api.get('/users/key-backup');
+  return data;
+};

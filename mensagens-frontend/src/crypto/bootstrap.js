@@ -1,4 +1,4 @@
-import { updateKeyPair } from '../api/user.api'
+import { updateKeyPair, getKeyBackup } from '../api/user.api'
 import {
   getPrivateKey,
   getPublicKey,
@@ -26,11 +26,8 @@ export async function bootstrapCrypto(user) {
     existingPublicKey &&
     existingOwnerId === user._id
 
-  let publicKeyBase64 = existingPublicKey
-
   if (hasValidLocalKeys) {
-    const shouldSyncKeyPair =
-      user.publicKey !== existingPublicKey || !user.privateKeyBackup
+    const shouldSyncKeyPair = user.publicKey !== existingPublicKey || !user.hasPrivateKeyBackup
 
     if (shouldSyncKeyPair) {
       await updateKeyPair(existingPublicKey, existingPrivateKey)
@@ -39,23 +36,27 @@ export async function bootstrapCrypto(user) {
     return
   }
 
-  if (!hasValidLocalKeys && user.privateKeyBackup && user.publicKey) {
-    await savePrivateKey(user.privateKeyBackup)
-    await savePublicKey(user.publicKey)
-    await saveKeyOwner(user._id)
-    return
+  if (user.hasPrivateKeyBackup && user.publicKey) {
+    const keyBackup = await getKeyBackup()
+
+    if (keyBackup?.privateKeyBackup && keyBackup?.publicKey) {
+      await savePrivateKey(keyBackup.privateKeyBackup)
+      await savePublicKey(keyBackup.publicKey)
+      await saveKeyOwner(user._id)
+      return
+    }
   }
 
-  if (!hasValidLocalKeys && user.publicKey && !user.privateKeyBackup) {
+  if (!hasValidLocalKeys && user.publicKey && user.hasPrivateKeyBackup) {
     throw new Error(
-      'Backup da chave privada não encontrado. Faça login no dispositivo original para sincronizar as chaves.'
+      'Não foi possível recuperar o backup da chave privada neste momento. Faça login novamente.'
     )
   }
 
   if (!hasValidLocalKeys) {
     const { publicKey, privateKey } = await generateKeyPair()
 
-    publicKeyBase64 = await exportPublicKey(publicKey)
+    const publicKeyBase64 = await exportPublicKey(publicKey)
     const privateKeyBase64 = await exportPrivateKey(privateKey)
 
     await savePrivateKey(privateKeyBase64)

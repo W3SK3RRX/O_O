@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import log from '../config/logger.js';
+import { encryptKeyBackup, decryptKeyBackup } from '../utils/keyBackupCipher.js';
 
 export const searchUsers = async (req, res) => {
   try {
@@ -26,8 +27,23 @@ export const searchUsers = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-password');
-    res.json(user);
+    const user = await User.findById(req.user._id)
+      .select('name email avatar publicKey role isAdmin privateKeyBackup');
+
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+
+    return res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      publicKey: user.publicKey,
+      hasPrivateKeyBackup: !!user.privateKeyBackup,
+      role: user.role,
+      isAdmin: user.isAdmin,
+    });
   } catch (error) {
     log.error({ error }, 'Erro ao buscar perfil');
     res.status(500).json({ message: 'Erro ao buscar perfil' });
@@ -61,9 +77,11 @@ export const updateKeyPair = async (req, res) => {
       privateKeyBackup,
     } = req.validatedBody || req.body;
 
+    const encryptedPrivateKeyBackup = encryptKeyBackup(privateKeyBackup);
+
     await User.findByIdAndUpdate(userId, {
       publicKey,
-      privateKeyBackup,
+      privateKeyBackup: encryptedPrivateKeyBackup,
     });
 
     log.info({ userId }, 'Par de chaves atualizado');
@@ -97,5 +115,26 @@ export const changePassword = async (req, res) => {
   } catch (error) {
     log.error({ error }, 'Erro ao alterar senha');
     res.status(500).json({ message: "Erro ao alterar senha" });
+  }
+};
+
+export const getPrivateKeyBackup = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId).select('privateKeyBackup publicKey');
+
+    if (!user || !user.privateKeyBackup) {
+      return res.status(404).json({ message: 'Backup da chave privada não encontrado' });
+    }
+
+    const privateKeyBackup = decryptKeyBackup(user.privateKeyBackup);
+
+    return res.status(200).json({
+      privateKeyBackup,
+      publicKey: user.publicKey,
+    });
+  } catch (error) {
+    log.error({ error }, 'Erro ao buscar backup da chave privada');
+    return res.status(500).json({ message: 'Erro ao buscar backup da chave privada' });
   }
 };

@@ -27,7 +27,7 @@ export default function Login() {
         email: data.email,
         avatar: data.avatar,
         publicKey: data.publicKey,
-        privateKeyBackup: data.privateKeyBackup,
+        hasPrivateKeyBackup: data.hasPrivateKeyBackup,
         role: data.role,
         isAdmin: data.isAdmin,
         mustChangePassword: data.mustChangePassword,

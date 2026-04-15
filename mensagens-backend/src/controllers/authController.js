@@ -44,7 +44,7 @@ export const register = async (req, res) => {
       email: user.email,
       avatar: user.avatar,
       publicKey: user.publicKey,
-      privateKeyBackup: user.privateKeyBackup,
+      hasPrivateKeyBackup: !!user.privateKeyBackup,
       token,
       refreshToken,
     });
@@ -78,7 +78,7 @@ export const login = async (req, res) => {
       email: user.email,
       avatar: user.avatar,
       publicKey: user.publicKey,
-      privateKeyBackup: user.privateKeyBackup,
+      hasPrivateKeyBackup: !!user.privateKeyBackup,
       token,
       refreshToken,
       role: user.role || (user.isAdmin ? 'admin' : 'user'),
@@ -129,7 +129,7 @@ export const getMe = async (req, res) => {
       email: req.user.email,
       avatar: req.user.avatar,
       publicKey: req.user.publicKey,
-      privateKeyBackup: req.user.privateKeyBackup,
+      hasPrivateKeyBackup: !!req.user.privateKeyBackup,
       role: req.user.role || (req.user.isAdmin ? 'admin' : 'user'),
       isAdmin: req.user.isAdmin,
     };

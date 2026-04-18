@@ -24,8 +24,6 @@ export default function ChangePassword() {
     try {
       setLoading(true)
       await changePassword(password)
-
-      // 🔒 força novo login após troca
       logout()
       navigate('/login', { replace: true })
     } catch {
@@ -38,7 +36,9 @@ export default function ChangePassword() {
   return (
     <div style={styles.container}>
       <form onSubmit={handleSubmit} style={styles.form}>
-        <h2>Trocar Senha</h2>
+        <div style={styles.promptLine}>[CHANGE_PASSWORD]</div>
+        <h2 style={styles.title}>Trocar Senha</h2>
+        <p style={styles.subtitle}>root@secure:~$ passwd --force</p>
 
         {error && <p style={styles.error}>{error}</p>}
 
@@ -48,6 +48,7 @@ export default function ChangePassword() {
           value={password}
           onChange={e => setPassword(e.target.value)}
           required
+          style={styles.input}
         />
 
         <input
@@ -56,10 +57,11 @@ export default function ChangePassword() {
           value={confirm}
           onChange={e => setConfirm(e.target.value)}
           required
+          style={styles.input}
         />
 
-        <button type="submit" disabled={loading}>
-          {loading ? 'Salvando...' : 'Salvar senha'}
+        <button type="submit" disabled={loading} style={styles.button}>
+          {loading ? 'SALVANDO...' : 'SALVAR SENHA'}
         </button>
       </form>
     </div>
@@ -68,18 +70,57 @@ export default function ChangePassword() {
 
 const styles = {
   container: {
-    height: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center'
+    minHeight: '100dvh',
+    display: 'grid',
+    placeItems: 'center',
+    padding: '16px 10px',
   },
   form: {
-    width: 320,
+    width: 'min(100%, 560px)',
     display: 'flex',
     flexDirection: 'column',
-    gap: 10
+    gap: 12,
+    padding: '18px 14px',
+    border: '1px solid var(--border)',
+    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
+    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)',
+  },
+  promptLine: {
+    color: 'var(--accent)',
+    fontSize: 12,
+  },
+  title: {
+    margin: 0,
+    fontSize: 20,
+    letterSpacing: 1,
+  },
+  subtitle: {
+    margin: '0 0 8px',
+    fontSize: 12,
+    color: 'var(--text-muted)',
+  },
+  input: {
+    width: '100%',
+    padding: '12px',
+    minHeight: 44,
+    border: '1px solid var(--border)',
+    outline: 'none',
+    background: '#010805',
+    color: 'var(--text-main)',
+  },
+  button: {
+    marginTop: 4,
+    padding: '12px',
+    minHeight: 44,
+    border: '1px solid var(--accent-strong)',
+    background: 'rgba(0, 255, 90, 0.12)',
+    color: 'var(--accent)',
+    fontWeight: 700,
+    cursor: 'pointer',
   },
   error: {
-    color: 'red'
-  }
+    margin: 0,
+    color: 'var(--danger)',
+    fontSize: 13,
+  },
 }

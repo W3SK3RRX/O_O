@@ -159,9 +159,10 @@ const styles = {
     border: '1px solid var(--border)',
     color: 'var(--accent)',
     fontSize: 18,
-    width: 36,
-    height: 36,
-    cursor: 'pointer'
+    width: 44,
+    height: 44,
+    cursor: 'pointer',
+    flexShrink: 0,
   },
   iconButton: {
     background: 'transparent',
@@ -169,17 +170,17 @@ const styles = {
     color: 'var(--text-main)',
     fontSize: 12,
     minWidth: 48,
-    height: 36,
-    cursor: 'pointer'
+    height: 44,
+    cursor: 'pointer',
   },
   newChatButton: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     border: '1px solid var(--accent-strong)',
     background: 'rgba(0, 255, 90, 0.1)',
     color: 'var(--accent)',
     fontSize: 22,
-    cursor: 'pointer'
+    cursor: 'pointer',
   },
   subheader: {
     padding: '10px 14px',

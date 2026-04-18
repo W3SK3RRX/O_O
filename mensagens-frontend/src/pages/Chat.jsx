@@ -384,9 +384,10 @@ const styles = {
     border: '1px solid var(--border)',
     color: 'var(--accent)',
     fontSize: 18,
-    width: 36,
-    height: 36,
-    cursor: 'pointer'
+    width: 44,
+    height: 44,
+    cursor: 'pointer',
+    flexShrink: 0,
   },
   messages: {
     flex: 1,
@@ -420,8 +421,8 @@ const styles = {
     color: 'var(--text-main)'
   },
   sendButton: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     border: '1px solid var(--accent-strong)',
     background: 'rgba(0, 255, 90, 0.12)',
     color: 'var(--accent)',
@@ -429,6 +430,7 @@ const styles = {
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    flexShrink: 0,
   }
 }

@@ -293,9 +293,10 @@ const styles = {
     border: '1px solid var(--border)',
     color: 'var(--accent)',
     fontSize: 18,
-    width: 36,
-    height: 36,
-    cursor: 'pointer'
+    width: 44,
+    height: 44,
+    cursor: 'pointer',
+    flexShrink: 0,
   },
   modeToggle: {
     display: 'flex',

@@ -4,6 +4,34 @@ import { useChatStore } from '../store/chat.store'
 import { useSocketStore } from '../store/socket.store'
 import { useAuthStore } from '../store/auth.store'
 
+function getOtherParticipant(conv, currentUserId) {
+  if (!conv.participants) return null
+  return conv.participants.find((p) => p._id?.toString() !== currentUserId?.toString()) ?? null
+}
+
+function ConvCard({ conv, currentUserId, onClick }) {
+  const unreadCounts = useChatStore((s) => s.unreadCounts)
+  const unread = unreadCounts[conv._id] ?? 0
+  const other = getOtherParticipant(conv, currentUserId)
+  const displayName = conv.isGroup ? conv.name : (other?.name ?? `canal_${conv._id.slice(-4)}`)
+
+  return (
+    <div style={styles.chatItem} onClick={onClick}>
+      <div style={styles.chatContent}>
+        <div style={styles.cardRow}>
+          <span style={styles.chatName}>{displayName}</span>
+          {unread > 0 && (
+            <span style={styles.badge}>{unread > 99 ? '99+' : unread}</span>
+          )}
+        </div>
+        <div style={styles.lastMessage}>
+          {'> '}{conv.lastMessage?.cipherText ? '[mensagem criptografada]' : conv.lastMessage?.text || '[sem mensagens]'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ChatList() {
   const navigate = useNavigate()
   const user = useAuthStore(state => state.user)
@@ -11,8 +39,7 @@ export default function ChatList() {
   const connect = useSocketStore(state => state.connect)
   const disconnect = useSocketStore(state => state.disconnect)
 
-  const { conversations, fetchConversations, loading } =
-    useChatStore()
+  const { conversations, fetchConversations, loading } = useChatStore()
 
   useEffect(() => {
     connect()
@@ -89,21 +116,12 @@ export default function ChatList() {
           )}
 
           {conversations.map(conv => (
-            <div
+            <ConvCard
               key={conv._id}
-              style={styles.chatItem}
+              conv={conv}
+              currentUserId={user?._id}
               onClick={() => navigate(`/chat/${conv._id}`)}
-            >
-              <div style={styles.chatContent}>
-                <div style={styles.chatName}>
-                  root@chat:~$ open convo_{conv._id.slice(-4)}
-                </div>
-
-                <div style={styles.lastMessage}>
-                  {'> '} {conv.lastMessage?.text || '[sem mensagens]'}
-                </div>
-              </div>
-            </div>
+            />
           ))}
         </div>
       </div>
@@ -193,10 +211,10 @@ const styles = {
     overflowY: 'auto',
     padding: 10,
     display: 'grid',
-    gap: 8
+    gap: 6
   },
   chatItem: {
-    padding: '12px',
+    padding: '8px 12px',
     cursor: 'pointer',
     border: '1px solid rgba(14, 143, 61, 0.6)',
     background: 'rgba(3, 16, 11, 0.8)'
@@ -204,16 +222,36 @@ const styles = {
   chatContent: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 6
+    gap: 3
+  },
+  cardRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8
   },
   chatName: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 700,
-    color: 'var(--accent)'
+    color: 'var(--accent)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
+  },
+  badge: {
+    background: 'var(--accent)',
+    color: '#020907',
+    fontSize: 10,
+    fontWeight: 700,
+    borderRadius: 10,
+    padding: '1px 6px',
+    flexShrink: 0,
+    minWidth: 18,
+    textAlign: 'center'
   },
   lastMessage: {
-    fontSize: 14,
-    color: 'var(--text-main)',
+    fontSize: 12,
+    color: 'var(--text-muted)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis'

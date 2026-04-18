@@ -10,10 +10,26 @@ export const useChatStore = create((set, get) => ({
   activeConversation: null,
   loading: false,
   pagination: null,
+  unreadCounts: {},
 
   setActiveConversation: (conversation) => {
     set({ activeConversation: conversation })
   },
+
+  incrementUnread: (conversationId) =>
+    set((state) => ({
+      unreadCounts: {
+        ...state.unreadCounts,
+        [conversationId]: (state.unreadCounts[conversationId] ?? 0) + 1,
+      },
+    })),
+
+  clearUnread: (conversationId) =>
+    set((state) => {
+      const next = { ...state.unreadCounts };
+      delete next[conversationId];
+      return { unreadCounts: next };
+    }),
 
   fetchConversations: async () => {
     set({ loading: true })

@@ -55,7 +55,10 @@ export default function Chat() {
     fetchMessages,
     addMessage,
     updateLastMessage,
-    markAsRead
+    markAsRead,
+    setActiveConversation,
+    clearUnread,
+    conversations,
   } = useChatStore()
 
   const messagesEndRef = useRef(null)
@@ -66,6 +69,13 @@ export default function Chat() {
       connectSocket()
     }
   }, [socket, connectSocket])
+
+  useEffect(() => {
+    const conv = conversations.find((c) => c._id === conversationId) ?? { _id: conversationId }
+    setActiveConversation(conv)
+    clearUnread(conversationId)
+    return () => setActiveConversation(null)
+  }, [conversationId, conversations, setActiveConversation, clearUnread])
 
   useEffect(() => {
     const resolveConversationKey = async () => {

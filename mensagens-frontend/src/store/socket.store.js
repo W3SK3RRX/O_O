@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { io } from 'socket.io-client'
 import { useAuthStore } from './auth.store'
+import { useChatStore } from './chat.store'
+import { useNotificationStore } from './notification.store'
 
 export const useSocketStore = create((set, get) => ({
   socket: null,
@@ -23,6 +25,26 @@ export const useSocketStore = create((set, get) => ({
       socket.on('connect', () => {
         set({ connected: true, connectionError: null })
         console.log('Socket conectado')
+      })
+
+      socket.on('newMessage', (message) => {
+        const { activeConversation, addMessage, updateLastMessage, incrementUnread } = useChatStore.getState()
+        const currentUserId = useAuthStore.getState().user?._id
+
+        addMessage(message)
+        updateLastMessage(message)
+
+        const isActiveConversation = activeConversation?._id === message.conversationId
+        const isFromOther = message.senderId?.toString() !== currentUserId?.toString()
+
+        if (isFromOther && !isActiveConversation) {
+          incrementUnread(message.conversationId)
+          useNotificationStore.getState().addToast({
+            title: message.senderName ?? 'Nova mensagem',
+            body: 'Você recebeu uma mensagem',
+            conversationId: message.conversationId,
+          })
+        }
       })
 
       socket.on('disconnect', () => {

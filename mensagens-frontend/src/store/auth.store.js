@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { bootstrapCrypto } from '../crypto/bootstrap'
 import api from '../api/axios'
+import { registerPush } from '../utils/pushManager'
 
 export const useAuthStore = create(
   persist(
@@ -17,6 +18,12 @@ export const useAuthStore = create(
           await bootstrapCrypto(user)
         } catch (err) {
           console.error('Erro ao inicializar criptografia', err)
+        }
+
+        if (user?.vapidPublicKey) {
+          registerPush(user.vapidPublicKey).catch((err) =>
+            console.warn('Push registration failed', err)
+          )
         }
       },
 

@@ -1,0 +1,15 @@
+# Claude Code runtime (gerados por sessão, nao commitar)
+.claude/scheduled_tasks.lock
+.claude/**/*.lock
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Node / tooling (caso algum script gere)
+node_modules/
+*.log

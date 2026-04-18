@@ -1,0 +1,24 @@
+{
+  "name": "agnostic-core",
+  "owner": {
+    "name": "Paulinete Miranda",
+    "email": "paulinete.miranda@laboratoriosobral.com.br"
+  },
+  "metadata": {
+    "description": "Acervo agnostico de skills, agents e commands para desenvolvimento em qualquer stack",
+    "version": "1.0.0-plugin.1"
+  },
+  "plugins": [
+    {
+      "name": "agnostic-core",
+      "source": "./",
+      "description": "92 skills, 17 agents e 4 workflow commands para desenvolvimento agnostico (frontend, backend, devops, security, audit, workflow)",
+      "version": "1.0.0-plugin.1",
+      "author": "Paulinete Miranda",
+      "homepage": "https://github.com/paulinett1508-dev/agnostic-core",
+      "repository": "https://github.com/paulinett1508-dev/agnostic-core",
+      "license": "MIT",
+      "keywords": ["skills", "agents", "commands", "claude-code", "agnostic", "frontend", "backend", "devops", "security", "audit"]
+    }
+  ]
+}

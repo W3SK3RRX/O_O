@@ -1,0 +1,50 @@
+#!/bin/bash
+# ============================================================
+# post-tool-use-autopush — Claude Code PostToolUse Hook
+# Faz push automaticamente após cada commit do Claude Code
+#
+# Instalação (settings.json do Claude Code):
+#   {
+#     "hooks": {
+#       "PostToolUse": [
+#         {
+#           "matcher": "Bash",
+#           "hooks": [
+#             {
+#               "type": "command",
+#               "command": ".agnostic-core/scripts/hooks/post-tool-use-autopush"
+#             }
+#           ]
+#         }
+#       ]
+#     }
+#   }
+#
+# Comportamento:
+#   - Detecta se o último comando Bash foi um git commit
+#   - Se sim, faz git push automaticamente para a branch atual
+#   - Se o push falhar, exibe aviso mas NÃO bloqueia o fluxo
+# ============================================================
+
+set -e
+
+# Só age se a tool_input contiver "git commit"
+if echo "$TOOL_INPUT" | grep -q "git commit"; then
+  BRANCH=$(git branch --show-current 2>/dev/null)
+
+  if [ -n "$BRANCH" ]; then
+    echo "[auto-push] Commit detectado. Fazendo push para origin/$BRANCH..."
+
+    # Tenta push com retry simples (2 tentativas)
+    if git push origin "$BRANCH" 2>/dev/null; then
+      echo "[auto-push] Push realizado com sucesso."
+    else
+      sleep 2
+      if git push origin "$BRANCH" 2>/dev/null; then
+        echo "[auto-push] Push realizado com sucesso (2ª tentativa)."
+      else
+        echo "[auto-push] AVISO: Push falhou. Faça manualmente: git push origin $BRANCH"
+      fi
+    fi
+  fi
+fi

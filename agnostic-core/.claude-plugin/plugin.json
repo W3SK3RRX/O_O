@@ -1,0 +1,15 @@
+{
+  "name": "agnostic-core",
+  "version": "1.0.0-plugin.1",
+  "description": "Acervo agnostico de skills, agents e commands para desenvolvimento — funciona como submodule (v1) ou plugin Claude Code (v2-preview)",
+  "author": {
+    "name": "Paulinete Miranda"
+  },
+  "homepage": "https://github.com/paulinett1508-dev/agnostic-core",
+  "repository": "https://github.com/paulinett1508-dev/agnostic-core",
+  "license": "MIT",
+  "keywords": ["skills", "agents", "commands", "claude-code", "agnostic", "frontend", "backend", "devops"],
+  "skills": "./skills-plugin/",
+  "agents": "./agents-plugin/",
+  "commands": "./commands-plugin/"
+}

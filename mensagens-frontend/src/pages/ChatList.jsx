@@ -4,32 +4,18 @@ import { useChatStore } from '../store/chat.store'
 import { useSocketStore } from '../store/socket.store'
 import { useAuthStore } from '../store/auth.store'
 
-function getOtherParticipant(conv, currentUserId) {
-  if (!conv.participants) return null
-  return conv.participants.find((p) => p._id?.toString() !== currentUserId?.toString()) ?? null
+const getConversationName = (conv, currentUserId) => {
+  if (!conv?.participants?.length) return `#${conv._id?.slice(-4)}`
+  const others = conv.participants.filter(
+    (p) => (p?._id ?? p)?.toString() !== currentUserId?.toString()
+  )
+  if (!others.length) return 'Você mesmo'
+  return others.map((p) => p?.name ?? '?').join(' • ')
 }
 
-function ConvCard({ conv, currentUserId, onClick }) {
-  const unreadCounts = useChatStore((s) => s.unreadCounts)
-  const unread = unreadCounts[conv._id] ?? 0
-  const other = getOtherParticipant(conv, currentUserId)
-  const displayName = conv.isGroup ? conv.name : (other?.name ?? `canal_${conv._id.slice(-4)}`)
-
-  return (
-    <div style={styles.chatItem} onClick={onClick}>
-      <div style={styles.chatContent}>
-        <div style={styles.cardRow}>
-          <span style={styles.chatName}>{displayName}</span>
-          {unread > 0 && (
-            <span style={styles.badge}>{unread > 99 ? '99+' : unread}</span>
-          )}
-        </div>
-        <div style={styles.lastMessage}>
-          {'> '}{conv.lastMessage?.cipherText ? '[mensagem criptografada]' : conv.lastMessage?.text || '[sem mensagens]'}
-        </div>
-      </div>
-    </div>
-  )
+const formatTime = (dateStr) => {
+  if (!dateStr) return '--'
+  return new Date(dateStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function ChatList() {
@@ -39,7 +25,7 @@ export default function ChatList() {
   const connect = useSocketStore(state => state.connect)
   const disconnect = useSocketStore(state => state.disconnect)
 
-  const { conversations, fetchConversations, loading } = useChatStore()
+  const { conversations, fetchConversations, loading, unreadCounts, clearUnread } = useChatStore()
 
   useEffect(() => {
     connect()
@@ -115,14 +101,28 @@ export default function ChatList() {
             <p style={styles.empty}>{'>'} nenhum canal encontrado</p>
           )}
 
-          {conversations.map(conv => (
-            <ConvCard
-              key={conv._id}
-              conv={conv}
-              currentUserId={user?._id}
-              onClick={() => navigate(`/chat/${conv._id}`)}
-            />
-          ))}
+          {conversations.map(conv => {
+            const name = getConversationName(conv, user?._id)
+            const unread = unreadCounts[conv._id] ?? 0
+            const time = formatTime(conv.lastMessage?.createdAt)
+            const lastMsg = '[mensagem criptografada]'
+
+            return (
+              <div
+                key={conv._id}
+                style={{ ...styles.chatItem, ...(unread > 0 ? styles.chatItemUnread : {}) }}
+                onClick={() => {
+                  clearUnread(conv._id)
+                  navigate(`/chat/${conv._id}`)
+                }}
+              >
+                <div style={styles.chatName}>{name}</div>
+                <div style={styles.chatTime}>{time}</div>
+                <div style={styles.chatMsg}>{'> '}{lastMsg}</div>
+                {unread > 0 && <div style={styles.badge}>{unread > 99 ? '99+' : unread}</div>}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -214,47 +214,59 @@ const styles = {
     gap: 6
   },
   chatItem: {
-    padding: '8px 12px',
+    padding: '9px 12px',
+    border: '1px solid rgba(14, 143, 61, 0.5)',
+    background: 'rgba(3, 16, 11, 0.8)',
     cursor: 'pointer',
-    border: '1px solid rgba(14, 143, 61, 0.6)',
-    background: 'rgba(3, 16, 11, 0.8)'
-  },
-  chatContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 3
-  },
-  cardRow: {
-    display: 'flex',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    gridTemplateRows: 'auto auto',
+    gap: '3px 8px',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8
+    minHeight: 52,
+  },
+  chatItemUnread: {
+    borderColor: 'var(--accent-strong)',
   },
   chatName: {
     fontSize: 13,
     fontWeight: 700,
     color: 'var(--accent)',
+    gridColumn: 1,
+    gridRow: 1,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
   },
-  badge: {
-    background: 'var(--accent)',
-    color: '#020907',
+  chatTime: {
     fontSize: 10,
-    fontWeight: 700,
-    borderRadius: 10,
-    padding: '1px 6px',
+    color: 'var(--text-muted)',
+    gridColumn: 2,
+    gridRow: 1,
+    textAlign: 'right',
     flexShrink: 0,
-    minWidth: 18,
-    textAlign: 'center'
   },
-  lastMessage: {
+  chatMsg: {
     fontSize: 12,
     color: 'var(--text-muted)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
-    textOverflow: 'ellipsis'
+    textOverflow: 'ellipsis',
+    gridColumn: 1,
+    gridRow: 2,
+  },
+  badge: {
+    gridColumn: 2,
+    gridRow: 2,
+    background: 'var(--accent)',
+    color: '#010805',
+    fontSize: 10,
+    fontWeight: 700,
+    borderRadius: 2,
+    padding: '1px 5px',
+    textAlign: 'center',
+    width: 'fit-content',
+    marginLeft: 'auto',
   },
   empty: {
     padding: 20,

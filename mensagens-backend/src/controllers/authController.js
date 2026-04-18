@@ -47,6 +47,7 @@ export const register = async (req, res) => {
       hasPrivateKeyBackup: !!user.privateKeyBackup,
       token,
       refreshToken,
+      vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
     });
   } catch (error) {
     log.error({ error }, 'Erro ao registrar usuário');
@@ -83,6 +84,7 @@ export const login = async (req, res) => {
       refreshToken,
       role: user.role || (user.isAdmin ? 'admin' : 'user'),
       isAdmin: user.isAdmin,
+      vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
     });
   } catch (error) {
     log.error({ error }, 'Erro ao fazer login');
@@ -132,6 +134,7 @@ export const getMe = async (req, res) => {
       hasPrivateKeyBackup: !!req.user.privateKeyBackup,
       role: req.user.role || (req.user.isAdmin ? 'admin' : 'user'),
       isAdmin: req.user.isAdmin,
+      vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
     };
     res.status(200).json(user);
   } catch (error) {

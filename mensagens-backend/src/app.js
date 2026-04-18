@@ -11,6 +11,7 @@ import userRoutes from './routes/user.routes.js';
 import conversationRoutes from './routes/conversation.routes.js';
 import messageRoutes from './routes/message.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import pushRoutes from './routes/push.routes.js';
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/messages', messageLimiter, messageRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/push', pushRoutes);
 
 // 404 handler
 app.use((req, res) => {

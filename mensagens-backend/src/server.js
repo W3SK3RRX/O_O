@@ -10,6 +10,7 @@ import Message from './models/Message.js';
 import Conversation from './models/Conversation.js';
 import { onlineUsers } from './store/onlineUsers.js';
 import env from './config/env.js';
+import { sendPushToUser } from './services/pushService.js';
 
 const PORT = env.PORT;
 
@@ -105,10 +106,23 @@ io.on("connection", (socket) => {
         _id: message._id,
         conversationId,
         senderId: socket.user._id,
+        senderName: socket.user.name,
         cipherText,
         iv,
         createdAt: message.createdAt,
       });
+
+      // Notify offline participants via Web Push
+      const offlineParticipants = conversation.participants.filter(
+        (p) => p.toString() !== socket.user._id.toString() && !onlineUsers.has(p.toString())
+      );
+      for (const participantId of offlineParticipants) {
+        sendPushToUser(participantId, {
+          title: socket.user.name,
+          body: 'Nova mensagem',
+          conversationId,
+        }).catch((err) => log.warn({ err }, 'Push notification failed'));
+      }
 
     } catch (err) {
       log.error({ err }, 'Erro ao enviar mensagem via socket');

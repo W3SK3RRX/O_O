@@ -1,14 +1,17 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
+import log from './logger.js';
 
 const connectDatabase = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
-      autoIndex: true,
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      socketTimeoutMS: 30_000,
+      serverSelectionTimeoutMS: 5_000,
     });
-
-    console.log("MongoDB conectado com sucesso");
+    log.info('MongoDB conectado com sucesso');
   } catch (error) {
-    console.error("Erro ao conectar no MongoDB:", error.message);
+    log.fatal({ error: error.message }, 'Erro ao conectar no MongoDB');
     process.exit(1);
   }
 };

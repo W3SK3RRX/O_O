@@ -1,15 +1,27 @@
-import http from "http";
-import { Server } from "socket.io";
-import dotenv from "dotenv";
-import app from "./app.js";
-import connectDatabase from "./config/database.js";
-import socketAuth from "./config/socket.js";
-import Message from "./models/Message.js";
-import Conversation from "./models/Conversation.js";
+import 'dotenv/config';
+import http from 'http';
+import { Server } from 'socket.io';
+import mongoose from 'mongoose';
+import app from './app.js';
+import connectDatabase from './config/database.js';
+import log from './config/logger.js';
+import socketAuth from './config/socket.js';
+import Message from './models/Message.js';
+import Conversation from './models/Conversation.js';
+import { onlineUsers } from './store/onlineUsers.js';
+import env from './config/env.js';
 
-dotenv.config();
+const PORT = env.PORT;
 
-const PORT = process.env.PORT || 3000;
+// Erros não capturados
+process.on('unhandledRejection', (reason) => {
+  log.error({ reason }, 'unhandledRejection');
+});
+
+process.on('uncaughtException', (err) => {
+  log.fatal({ err }, 'uncaughtException');
+  process.exit(1);
+});
 
 await connectDatabase();
 
@@ -17,13 +29,10 @@ const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['https://o_o.infinyforge.com.br'],
-    credentials: true
+    origin: env.CORS_ORIGIN.split(','),
+    credentials: true,
   },
 });
-
-// Mapa de usuários online: userId -> { socketId, email, name, lastSeen }
-export const onlineUsers = new Map();
 
 io.use(socketAuth);
 
@@ -31,7 +40,7 @@ io.use(socketAuth);
  * Conexões Socket.IO
  */
 io.on("connection", (socket) => {
-  console.log("Socket conectado:", socket.user.email);
+  log.info({ email: socket.user.email }, 'Socket conectado');
 
   // Adiciona usuário à lista de online
   onlineUsers.set(socket.user._id.toString(), {
@@ -102,7 +111,7 @@ io.on("connection", (socket) => {
       });
 
     } catch (err) {
-      console.error("Erro ao enviar mensagem", err);
+      log.error({ err }, 'Erro ao enviar mensagem via socket');
     }
   });
 
@@ -198,7 +207,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("Socket desconectado:", socket.user.email);
+    log.info({ email: socket.user.email }, 'Socket desconectado');
     
     const userId = socket.user._id.toString();
     const userData = onlineUsers.get(userId);
@@ -217,6 +226,23 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+const server = httpServer.listen(PORT, () => {
+  log.info({ port: PORT }, 'Servidor iniciado');
 });
+
+// Graceful shutdown
+const shutdown = async (signal) => {
+  log.info({ signal }, 'Encerrando gracefully...');
+  server.close(async () => {
+    await mongoose.connection.close();
+    log.info('Conexões encerradas. Processo finalizado.');
+    process.exit(0);
+  });
+  setTimeout(() => {
+    log.error('Timeout de shutdown — forçando encerramento');
+    process.exit(1);
+  }, 10_000);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

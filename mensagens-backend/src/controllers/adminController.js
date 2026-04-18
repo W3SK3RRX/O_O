@@ -1,7 +1,8 @@
 import User from '../models/User.js';
 import Message from '../models/Message.js';
 import Conversation from '../models/Conversation.js';
-import { onlineUsers } from '../server.js';
+import { onlineUsers } from '../store/onlineUsers.js';
+import log from '../config/logger.js';
 
 export const getDashboardStats = async (req, res) => {
   try {
@@ -18,7 +19,7 @@ export const getDashboardStats = async (req, res) => {
       totalConversations,
     });
   } catch (error) {
-    console.error(error);
+    log.error({ error }, 'Erro no admin controller');
     res.status(500).json({ message: 'Erro ao buscar estatísticas do dashboard' });
   }
 };
@@ -35,7 +36,7 @@ export const getOnlineUsers = async (req, res) => {
     
     res.json(users);
   } catch (error) {
-    console.error(error);
+    log.error({ error }, 'Erro no admin controller');
     res.status(500).json({ message: 'Erro ao buscar usuários online' });
   }
 };
@@ -142,7 +143,7 @@ export const toggleUserStatus = async (req, res) => {
 
         res.json({ message: `Usuário ${user.active ? 'ativado' : 'desativado'}` });
     } catch (error) {
-        console.error(error);
+        log.error({ error }, 'Erro no admin controller');
         res.status(500).json({ message: 'Erro ao alterar status do usuário', error: error.message });
     }
 };
@@ -162,7 +163,7 @@ export const resetUserPassword = async (req, res) => {
 
         res.json({ message: 'Senha resetada com sucesso', newPassword });
     } catch (error) {
-        console.error(error);
+        log.error({ error }, 'Erro no admin controller');
         res.status(500).json({ message: 'Erro ao resetar senha', error: error.message });
     }
 };

@@ -1,28 +1,28 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import log from '../config/logger.js';
+import { UnauthorizedError } from './errorClasses.js';
 
 export const protect = async (req, res, next) => {
-  let token;
+  try {
+    const authHeader = req.headers.authorization;
 
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-      // O select('-password') remove a senha do objeto retornado
-      req.user = await User.findById(decoded.id).select('-password');
-      
-      next();
-    } catch (error) {
-      console.error(error);
-      res.status(401).json({ message: 'Não autorizado, token falhou' });
+    if (!authHeader?.startsWith('Bearer ')) {
+      return next(new UnauthorizedError('Token não fornecido'));
     }
-  }
 
-  if (!token) {
-    res.status(401).json({ message: 'Não autorizado, sem token' });
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    req.user = await User.findById(decoded.id).select('-password');
+
+    if (!req.user) {
+      return next(new UnauthorizedError('Usuário não encontrado'));
+    }
+
+    next();
+  } catch (error) {
+    log.warn({ error: error.message, requestId: req.requestId }, 'Token inválido');
+    return next(new UnauthorizedError('Token inválido ou expirado'));
   }
 };

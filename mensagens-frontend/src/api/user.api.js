@@ -2,8 +2,8 @@ import api from './axios';
 
 export const searchUsers = async (query) => {
   if (!query.trim()) return [];
-  // AJUSTE: O backend espera ?search= e não ?query= (conforme o controller que criamos)
-  const { data } = await api.get(`/users/search?search=${query}`);
+  // Backend espera ?search= ; usa params para fazer o encode corretamente
+  const { data } = await api.get('/users/search', { params: { search: query } });
   return data;
 };
 
@@ -28,7 +28,6 @@ export const updateKeyPair = async (publicKey, privateKeyBackup) => {
   return data;
 };
 
-// Mantivemos o getProfile pois o AuthContext precisa dele para carregar o usuário
 export const getProfile = async () => {
   const { data } = await api.get('/users/profile');
   return data;

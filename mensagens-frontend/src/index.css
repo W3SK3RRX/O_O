@@ -155,10 +155,25 @@ a {
   background: linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98));
 }
 
-/* Shells de app (chat/lista/admin) ocupam a tela inteira no mobile */
+/* Shells de app (chat/lista/admin) ocupam a tela inteira no mobile.
+   ALTURA FIXA (não min-height): assim os filhos flex (.messages) ficam
+   limitados à viewport e rolam INTERNAMENTE, em vez de a shell crescer além da
+   tela e o body inteiro rolar (o que empurrava header/composer sticky pra fora,
+   deixando o layout "bugado" ao abrir a conversa). */
 .shell--app {
-  min-height: 100dvh;
+  height: 100dvh;
   overflow: hidden;
+}
+
+/* Numa tela de app, o .screen não deve adicionar padding de safe-area: a shell
+   ocupa 100dvh e o safe-area é tratado dentro do header (padding-top) e do
+   composer (padding-bottom). Sem isto, a soma estoura a viewport. */
+@media (max-width: 767px) {
+  .screen:has(.shell--app) {
+    height: 100dvh;
+    padding: 0;
+    overflow: hidden;
+  }
 }
 
 @media (min-width: 768px) {

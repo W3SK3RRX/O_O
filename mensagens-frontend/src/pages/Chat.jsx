@@ -302,9 +302,13 @@ export default function Chat() {
     }
   }, [messages, conversationKey])
 
+  // Rola até a última mensagem. Reage também a decryptedMessages: a
+  // descriptografia é assíncrona e muda a altura das bolhas depois do load,
+  // então sem isso o scroll parava antes do fim. Instantâneo para abrir
+  // direto na mensagem mais recente.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+  }, [messages, decryptedMessages])
 
   const handleTyping = useCallback(() => {
     if (!socket || !conversationId) return

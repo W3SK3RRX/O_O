@@ -28,14 +28,18 @@ export const useSocketStore = create((set, get) => ({
       })
 
       socket.on('newMessage', (message) => {
-        const { activeConversation, addMessage, updateLastMessage, incrementUnread } = useChatStore.getState()
+        const { activeConversation, updateLastMessage, incrementUnread } = useChatStore.getState()
         const currentUserId = useAuthStore.getState().user?._id
 
-        addMessage(message)
+        // Atualiza apenas a lista de conversas (preview/ordenação).
+        // A inserção na conversa ativa (com descriptografia) é feita em Chat.jsx,
+        // evitando dupla inserção/contagem.
         updateLastMessage(message)
 
         const isActiveConversation = activeConversation?._id === message.conversationId
-        const isFromOther = message.senderId?.toString() !== currentUserId?.toString()
+        // Normaliza senderId (pode vir como string ou objeto populado)
+        const senderId = (message.senderId?._id ?? message.senderId)?.toString()
+        const isFromOther = senderId !== currentUserId?.toString()
 
         if (isFromOther && !isActiveConversation) {
           incrementUnread(message.conversationId)
@@ -70,7 +74,12 @@ export const useSocketStore = create((set, get) => ({
 
   disconnect: () => {
     const socket = get().socket
-    if (socket) socket.disconnect()
-    set({ socket: null, connected: false })
+    if (socket) {
+      // Remove todos os listeners antes de desconectar para evitar handlers
+      // acumulados em reconexões.
+      socket.removeAllListeners()
+      socket.disconnect()
+    }
+    set({ socket: null, connected: false, connectionError: null })
   }
 }))

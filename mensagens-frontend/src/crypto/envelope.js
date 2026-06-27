@@ -1,7 +1,8 @@
 // src/crypto/envelope.js
+import { arrayBufferToBase64, base64ToArrayBuffer } from './utils'
 
 export async function encryptWithPublicKey(publicKey, dataBase64) {
-  const data = Uint8Array.from(atob(dataBase64), c => c.charCodeAt(0))
+  const data = base64ToArrayBuffer(dataBase64)
 
   const encrypted = await crypto.subtle.encrypt(
     { name: 'RSA-OAEP' },
@@ -9,14 +10,11 @@ export async function encryptWithPublicKey(publicKey, dataBase64) {
     data
   )
 
-  return btoa(String.fromCharCode(...new Uint8Array(encrypted)))
+  return arrayBufferToBase64(encrypted)
 }
 
 export async function decryptWithPrivateKey(privateKey, encryptedBase64) {
-  const encrypted = Uint8Array.from(
-    atob(encryptedBase64),
-    c => c.charCodeAt(0)
-  )
+  const encrypted = base64ToArrayBuffer(encryptedBase64)
 
   const decrypted = await crypto.subtle.decrypt(
     { name: 'RSA-OAEP' },
@@ -24,5 +22,5 @@ export async function decryptWithPrivateKey(privateKey, encryptedBase64) {
     encrypted
   )
 
-  return btoa(String.fromCharCode(...new Uint8Array(decrypted)))
+  return arrayBufferToBase64(decrypted)
 }

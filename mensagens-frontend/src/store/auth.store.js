@@ -11,11 +11,12 @@ export const useAuthStore = create(
       token: null,
       refreshToken: null,
 
-      login: async (user, token, refreshToken) => {
+      login: async (user, token, refreshToken, password) => {
         set({ user, token, refreshToken })
 
         try {
-          await bootstrapCrypto(user)
+          // A senha é usada para cifrar/recuperar o backup da chave privada (E2E).
+          await bootstrapCrypto(user, password)
         } catch (err) {
           console.error('Erro ao inicializar criptografia', err)
         }

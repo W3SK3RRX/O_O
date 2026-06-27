@@ -1,4 +1,5 @@
 // src/crypto/conversation.js
+import { arrayBufferToBase64, base64ToArrayBuffer } from './utils'
 
 export async function generateConversationKey() {
   return crypto.subtle.generateKey(
@@ -10,11 +11,11 @@ export async function generateConversationKey() {
 
 export async function exportConversationKey(key) {
   const raw = await crypto.subtle.exportKey('raw', key)
-  return btoa(String.fromCharCode(...new Uint8Array(raw)))
+  return arrayBufferToBase64(raw)
 }
 
 export async function importConversationKey(base64) {
-  const raw = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+  const raw = base64ToArrayBuffer(base64)
   return crypto.subtle.importKey(
     'raw',
     raw,

@@ -1,4 +1,5 @@
 // src/crypto/keys.js
+import { arrayBufferToBase64, base64ToArrayBuffer } from './utils'
 
 const ALGORITHM = {
   name: 'RSA-OAEP',
@@ -17,16 +18,16 @@ export async function generateKeyPair() {
 
 export async function exportPublicKey(publicKey) {
   const spki = await crypto.subtle.exportKey('spki', publicKey)
-  return btoa(String.fromCharCode(...new Uint8Array(spki)))
+  return arrayBufferToBase64(spki)
 }
 
 export async function exportPrivateKey(privateKey) {
   const pkcs8 = await crypto.subtle.exportKey('pkcs8', privateKey)
-  return btoa(String.fromCharCode(...new Uint8Array(pkcs8)))
+  return arrayBufferToBase64(pkcs8)
 }
 
 export async function importPublicKey(base64) {
-  const binary = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+  const binary = base64ToArrayBuffer(base64)
   return crypto.subtle.importKey(
     'spki',
     binary,
@@ -37,7 +38,7 @@ export async function importPublicKey(base64) {
 }
 
 export async function importPrivateKey(base64) {
-  const binary = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+  const binary = base64ToArrayBuffer(base64)
   return crypto.subtle.importKey(
     'pkcs8',
     binary,

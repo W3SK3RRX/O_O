@@ -35,8 +35,6 @@ export async function saveConversationKey(conversationId, keyBase64, keyVersion)
     createdAt: Date.now()
   }
 
-  console.log('saveConversationKey:', { conversationId, keyLength: keyBase64?.length, version: keyVersion })
-
   return new Promise((resolve, reject) => {
     const req = store.put(data, conversationId)
     req.onsuccess = () => resolve()
@@ -57,11 +55,6 @@ export async function loadConversationKey(conversationId) {
     const req = store.get(conversationId)
     req.onsuccess = () => {
       const result = req.result
-      console.log('loadConversationKey:', { 
-        conversationId, 
-        found: !!result,
-        version: result?.version 
-      })
       resolve(result || null)
     }
     req.onerror = () => reject(req.error)

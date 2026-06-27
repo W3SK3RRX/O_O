@@ -10,75 +10,35 @@ export default function Stats() {
 
   if (!stats) {
     return (
-      <div style={styles.loading}>
-        {'>'} carregando estatísticas...
-      </div>
+      <div className="empty-text">{'>'} carregando estatísticas...</div>
     )
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.sectionTitle}>{'>'} estatísticas do sistema</div>
+    <div className="section">
+      <div className="section-title">{'>'} estatísticas do sistema</div>
 
-      <div style={styles.grid}>
-        <div style={styles.card}>
-          <div style={styles.value}>{stats.totalUsers}</div>
-          <div style={styles.label}>usuários total</div>
+      <div className="stat-grid">
+        <div className="stat">
+          <div className="stat__value">{stats.totalUsers}</div>
+          <div className="stat__label">usuários total</div>
         </div>
 
-        <div style={styles.card}>
-          <div style={styles.value}>{stats.activeUsers}</div>
-          <div style={styles.label}>usuários ativos</div>
+        <div className="stat">
+          <div className="stat__value">{stats.activeUsers}</div>
+          <div className="stat__label">usuários ativos</div>
         </div>
 
-        <div style={styles.card}>
-          <div style={styles.value}>{stats.totalConversations}</div>
-          <div style={styles.label}>conversas</div>
+        <div className="stat">
+          <div className="stat__value">{stats.totalConversations}</div>
+          <div className="stat__label">conversas</div>
         </div>
 
-        <div style={styles.card}>
-          <div style={styles.value}>{stats.totalMessages}</div>
-          <div style={styles.label}>mensagens</div>
+        <div className="stat">
+          <div className="stat__value">{stats.totalMessages}</div>
+          <div className="stat__label">mensagens</div>
         </div>
       </div>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10
-  },
-  sectionTitle: {
-    fontSize: 12,
-    color: 'var(--accent)'
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: 10
-  },
-  card: {
-    padding: '14px',
-    border: '1px solid rgba(14, 143, 61, 0.6)',
-    background: 'rgba(3, 16, 11, 0.8)',
-    textAlign: 'center'
-  },
-  value: {
-    fontSize: 24,
-    fontWeight: 700,
-    color: 'var(--accent)',
-    fontFamily: 'monospace'
-  },
-  label: {
-    fontSize: 11,
-    color: 'var(--text-muted)',
-    marginTop: 4
-  },
-  loading: {
-    padding: 20,
-    color: 'var(--text-muted)'
-  }
 }

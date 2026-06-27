@@ -33,7 +33,7 @@ export default function Login() {
         mustChangePassword: data.mustChangePassword,
       }
 
-      await login(user, token, refreshToken)
+      await login(user, token, refreshToken, password)
 
       if (user.mustChangePassword) {
         navigate('/change-password', { replace: true })
@@ -48,13 +48,13 @@ export default function Login() {
   }
 
   return (
-    <div style={styles.container}>
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <div style={styles.promptLine}>[SYSTEM_LOGIN]</div>
-        <h2 style={styles.title}>O_O</h2>
-        <p style={styles.subtitle}>root@secure:~$ login --encrypted</p>
+    <div className="screen screen--center screen--form">
+      <form onSubmit={handleSubmit} className="shell auth-form">
+        <div className="auth-form__tag">[SYSTEM_LOGIN]</div>
+        <h2 className="auth-form__title">O_O</h2>
+        <p className="auth-form__subtitle">root@secure:~$ login --encrypted</p>
 
-        {error && <p style={styles.error}>{error}</p>}
+        {error && <p className="error-text">{error}</p>}
 
         <input
           type="email"
@@ -62,7 +62,8 @@ export default function Login() {
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
-          style={styles.input}
+          autoComplete="email"
+          className="field"
         />
 
         <input
@@ -71,68 +72,14 @@ export default function Login() {
           value={password}
           onChange={e => setPassword(e.target.value)}
           required
-          style={styles.input}
+          autoComplete="current-password"
+          className="field"
         />
 
-        <button type="submit" disabled={loading} style={styles.button}>
+        <button type="submit" disabled={loading} className="btn btn--primary btn--block">
           {loading ? 'CONECTANDO...' : 'ENTRAR'}
         </button>
       </form>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    minHeight: '100dvh',
-    display: 'grid',
-    placeItems: 'center',
-    padding: '16px 10px'
-  },
-  form: {
-    width: 'min(100%, 760px)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-    padding: '18px 14px',
-    border: '1px solid var(--border)',
-    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
-    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)'
-  },
-  promptLine: {
-    color: 'var(--accent)',
-    fontSize: 12
-  },
-  title: {
-    margin: 0,
-    fontSize: 24,
-    letterSpacing: 1
-  },
-  subtitle: {
-    margin: '0 0 8px',
-    fontSize: 12,
-    color: 'var(--text-muted)'
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    border: '1px solid var(--border)',
-    outline: 'none',
-    background: '#010805',
-    color: 'var(--text-main)'
-  },
-  button: {
-    marginTop: 4,
-    padding: '12px',
-    border: '1px solid var(--accent-strong)',
-    background: 'rgba(0, 255, 90, 0.12)',
-    color: 'var(--accent)',
-    fontWeight: 700,
-    cursor: 'pointer'
-  },
-  error: {
-    margin: 0,
-    color: 'var(--danger)',
-    fontSize: 13
-  }
 }

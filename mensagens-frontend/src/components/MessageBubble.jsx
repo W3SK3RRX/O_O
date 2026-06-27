@@ -6,18 +6,20 @@ export default function MessageBubble({ message, isMine }) {
 
   const isDeleted = message.deleted || message.cipherText === '[mensagem apagada]'
 
-  // Detectar URLs na mensagem
+  // Detectar URLs na mensagem.
+  // Usa .match() (sem estado de lastIndex) para detectar; o regex /g é seguro em split/match,
+  // mas NUNCA reutilizado em .test() (que mantém lastIndex entre chamadas).
   const urlRegex = /(https?:\/\/[^\s]+)/g
-  const hasUrls = message.text && urlRegex.test(message.text)
-  const urls = hasUrls ? message.text.match(urlRegex) : []
+  const urls = message.text ? (message.text.match(urlRegex) ?? []) : []
+  const hasUrls = urls.length > 0
 
   const renderTextWithLinks = (text) => {
     if (!text) return null
-    
+
     const parts = text.split(urlRegex)
-    
+
     return parts.map((part, i) => {
-      if (urlRegex.test(part)) {
+      if (/^https?:\/\//.test(part)) {
         return (
           <a 
             key={i} 
@@ -60,39 +62,22 @@ export default function MessageBubble({ message, isMine }) {
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: isMine ? 'flex-end' : 'flex-start',
-        marginBottom: 8
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '80%',
-          padding: '10px 12px',
-          border: isMine ? '1px solid #11ad4c' : '1px solid rgba(14, 143, 61, 0.7)',
-          background: isMine ? 'rgba(2, 24, 12, 0.96)' : 'rgba(1, 16, 10, 0.9)',
-          color: 'var(--text-main)'
-        }}
-      >
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
-          {isMine ? 'user@local:~$' : 'root@sender:~$'} [{time}]
-          {message.read && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>✓✓</span>}
-        </div>
-        <div style={{ fontSize: 18, marginBottom: 4 }}>{'>'}</div>
-        <div style={{ fontSize: 16, lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-          {isDeleted ? <i style={{ color: 'var(--text-muted)' }}>{message.text}</i> : renderTextWithLinks(message.text)}
-        </div>
-        
-        {message.edited && !isDeleted && (
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
-            [editado]
-          </div>
-        )}
-
-        {linkPreview}
+    <div className={`bubble ${isMine ? 'bubble--mine' : 'bubble--theirs'}`}>
+      <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', marginBottom: 4 }}>
+        {isMine ? 'user@local:~$' : 'root@sender:~$'} [{time}]
+        {message.read && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>✓✓</span>}
       </div>
+      <div style={{ fontSize: 'var(--fs-base)', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        {isDeleted ? <i style={{ color: 'var(--text-muted)' }}>{message.text}</i> : renderTextWithLinks(message.text)}
+      </div>
+
+      {message.edited && !isDeleted && (
+        <div style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-muted)', marginTop: 4 }}>
+          [editado]
+        </div>
+      )}
+
+      {linkPreview}
     </div>
   )
 }

@@ -49,15 +49,15 @@ export default function CreateUser() {
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.sectionTitle}>{'>'} criar novo usuário</div>
+    <div className="section">
+      <div className="section-title">{'>'} criar novo usuário</div>
 
-      <form onSubmit={handleSubmit} style={styles.form}>
-        {error && <p style={styles.error}>{'>'} {error}</p>}
-        {success && <p style={styles.success}>{'>'} {success}</p>}
+      <form onSubmit={handleSubmit} className="section">
+        {error && <p className="error-text">{'>'} {error}</p>}
+        {success && <p style={{ color: 'var(--accent)', fontSize: 'var(--fs-xs)', margin: 0 }}>{'>'} {success}</p>}
 
         <input
-          style={styles.input}
+          className="field"
           placeholder="nome"
           value={name}
           onChange={e => setName(e.target.value)}
@@ -65,7 +65,7 @@ export default function CreateUser() {
         />
 
         <input
-          style={styles.input}
+          className="field"
           type="email"
           placeholder="email"
           value={email}
@@ -74,25 +74,27 @@ export default function CreateUser() {
         />
 
         <input
-          style={styles.input}
+          className="field"
           type="password"
           placeholder="senha inicial"
           value={password}
           onChange={e => setPassword(e.target.value)}
+          autoComplete="new-password"
           required
         />
 
         <input
-          style={styles.input}
+          className="field"
           type="password"
           placeholder="confirmar senha"
           value={confirm}
           onChange={e => setConfirm(e.target.value)}
+          autoComplete="new-password"
           required
         />
 
         <select
-          style={styles.select}
+          className="field"
           value={role}
           onChange={e => setRole(e.target.value)}
         >
@@ -100,65 +102,10 @@ export default function CreateUser() {
           <option value="admin">admin</option>
         </select>
 
-        <button style={styles.button} disabled={loading}>
+        <button className="btn btn--primary btn--block" disabled={loading}>
           {loading ? '[CRIANDO...]' : '[CRIAR USUÁRIO]'}
         </button>
       </form>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10
-  },
-  sectionTitle: {
-    fontSize: 12,
-    color: 'var(--accent)'
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    border: '1px solid var(--border)',
-    outline: 'none',
-    background: '#010805',
-    color: 'var(--text-main)',
-    fontSize: 14
-  },
-  select: {
-    width: '100%',
-    padding: '12px',
-    border: '1px solid var(--border)',
-    outline: 'none',
-    background: '#010805',
-    color: 'var(--text-main)',
-    fontSize: 14,
-    cursor: 'pointer'
-  },
-  button: {
-    padding: '12px',
-    border: '1px solid var(--accent-strong)',
-    background: 'rgba(0, 255, 90, 0.12)',
-    color: 'var(--accent)',
-    fontWeight: 700,
-    cursor: 'pointer',
-    fontSize: 14
-  },
-  error: {
-    color: 'var(--danger)',
-    fontSize: 12,
-    margin: 0
-  },
-  success: {
-    color: 'var(--accent)',
-    fontSize: 12,
-    margin: 0
-  }
 }

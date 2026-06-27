@@ -31,9 +31,15 @@ export default function NewChat() {
   const handleSearch = async () => {
     if (!query.trim()) return
     setLoading(true)
-    const users = await searchUsers(query)
-    setResults(users.filter(u => u._id !== user._id))
-    setLoading(false)
+    try {
+      const users = await searchUsers(query)
+      setResults(users.filter(u => u._id !== user._id))
+    } catch (err) {
+      console.error('Erro ao buscar usuários', err)
+      setResults([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const toggleUser = (u) => {
@@ -172,86 +178,102 @@ export default function NewChat() {
     }
   }
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.shell}>
-        <div style={styles.header}>
-          <button style={styles.backButton} onClick={() => navigate(-1)} title="Voltar">
-            {'<'}
-          </button>
-          <div>
-            <strong>NOVA CONVERSA</strong>
-            <div style={styles.hint}>root@secure:~$ create_channel --encrypted</div>
-          </div>
-        </div>
+  const tabStyle = (active) => ({
+    flex: 1,
+    border: 'none',
+    borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+    background: active ? 'rgba(0, 255, 90, 0.1)' : 'transparent',
+    color: active ? 'var(--accent)' : 'var(--text-muted)',
+  })
 
-        <div style={styles.modeToggle}>
-          <button 
-            style={mode === 'chat' ? styles.modeBtnActive : styles.modeBtn} 
+  return (
+    <div className="screen">
+      <div className="shell shell--app">
+        <header className="app-header">
+          <button className="icon-btn" onClick={() => navigate(-1)} title="Voltar">{'<'}</button>
+          <div className="app-header__identity">
+            <strong className="app-header__title">NOVA CONVERSA</strong>
+            <div className="app-header__prompt">root@secure:~$ create_channel --encrypted</div>
+          </div>
+        </header>
+
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+          <button
+            className="btn"
+            style={tabStyle(mode === 'chat')}
             onClick={() => { setMode('chat'); setSelectedUsers([]); setResults([]) }}
           >
             CHAT PRIVADO
           </button>
-          <button 
-            style={mode === 'group' ? styles.modeBtnActive : styles.modeBtn} 
+          <button
+            className="btn"
+            style={tabStyle(mode === 'group')}
             onClick={() => { setMode('group'); setSelectedUsers([]); setResults([]) }}
           >
             CRIAR GRUPO
           </button>
         </div>
 
-        <div style={styles.content}>
+        <div className="scroll-area" style={{ padding: 'var(--sp-3)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
           {mode === 'group' && (
-            <div style={styles.groupNameInput}>
-              <input
-                placeholder="Nome do grupo"
-                value={groupName}
-                onChange={e => setGroupName(e.target.value)}
-                style={styles.input}
-              />
-            </div>
+            <input
+              className="field"
+              placeholder="Nome do grupo"
+              value={groupName}
+              onChange={e => setGroupName(e.target.value)}
+            />
           )}
 
-          <div style={styles.search}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--sp-2)' }}>
             <input
+              className="field"
               placeholder="Buscar usuário pelo nome"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              style={styles.input}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
             />
-            <button onClick={handleSearch} disabled={loading} style={styles.button}>
+            <button onClick={handleSearch} disabled={loading} className="btn btn--primary">
               BUSCAR
             </button>
           </div>
 
           {mode === 'group' && selectedUsers.length > 0 && (
-            <div style={styles.selectedInfo}>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--accent)', padding: '4px 8px', background: 'rgba(0, 255, 90, 0.1)' }}>
               {selectedUsers.length} participante(s) selecionado(s)
             </div>
           )}
 
-          <div style={styles.list}>
-            {results.map(u => (
-              <div
-                key={u._id}
-                style={mode === 'group' 
-                  ? (selectedUsers.find(x => x._id === u._id) ? styles.itemSelected : styles.item)
-                  : styles.item
-                }
-                onClick={() => mode === 'group' ? toggleUser(u) : startConversation(u)}
-              >
-                {mode === 'group' && selectedUsers.find(x => x._id === u._id) && '[✓] '}
-                {'> '} {mode === 'group' ? 'add ' : 'connect --target='}{u.name}
-              </div>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            {results.map(u => {
+              const selected = mode === 'group' && !!selectedUsers.find(x => x._id === u._id)
+              return (
+                <div
+                  key={u._id}
+                  onClick={() => (mode === 'group' ? toggleUser(u) : startConversation(u))}
+                  style={{
+                    minHeight: 'var(--tap)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 'var(--sp-3)',
+                    border: `1px solid ${selected ? 'var(--accent-strong)' : 'rgba(14, 143, 61, 0.6)'}`,
+                    background: selected ? 'rgba(0, 255, 90, 0.1)' : 'rgba(3, 16, 11, 0.8)',
+                    color: selected ? 'var(--accent)' : 'var(--text-main)',
+                    cursor: 'pointer',
+                    fontSize: 'var(--fs-sm)',
+                  }}
+                >
+                  {selected && '[✓] '}
+                  {'> '} {mode === 'group' ? 'add ' : 'connect --target='}{u.name}
+                </div>
+              )
+            })}
           </div>
 
           {mode === 'group' && results.length > 0 && (
-            <button 
-              onClick={createNewGroup} 
+            <button
+              onClick={createNewGroup}
               disabled={loading || selectedUsers.length < 2 || !groupName.trim()}
-              style={styles.createGroupBtn}
+              className="btn btn--primary btn--block"
             >
               CRIAR GRUPO ({selectedUsers.length + 1} participantes)
             </button>
@@ -260,129 +282,4 @@ export default function NewChat() {
       </div>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    minHeight: '100dvh',
-    display: 'flex',
-    justifyContent: 'center',
-    padding: '16px 10px'
-  },
-  shell: {
-    width: '100%',
-    maxWidth: 760,
-    border: '1px solid var(--border)',
-    overflow: 'hidden',
-    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
-    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)'
-  },
-  header: {
-    padding: '12px 14px',
-    borderBottom: '1px solid var(--border)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10
-  },
-  hint: {
-    color: 'var(--text-muted)',
-    fontSize: 12
-  },
-  backButton: {
-    background: 'transparent',
-    border: '1px solid var(--border)',
-    color: 'var(--accent)',
-    fontSize: 18,
-    width: 44,
-    height: 44,
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-  modeToggle: {
-    display: 'flex',
-    borderBottom: '1px solid var(--border)'
-  },
-  modeBtn: {
-    flex: 1,
-    padding: '10px',
-    background: 'transparent',
-    border: 'none',
-    color: 'var(--text-muted)',
-    cursor: 'pointer',
-    fontSize: 12
-  },
-  modeBtnActive: {
-    flex: 1,
-    padding: '10px',
-    background: 'rgba(0, 255, 90, 0.1)',
-    border: 'none',
-    color: 'var(--accent)',
-    cursor: 'pointer',
-    fontSize: 12
-  },
-  content: {
-    padding: 14,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12
-  },
-  groupNameInput: {
-    marginBottom: 4
-  },
-  search: {
-    display: 'grid',
-    gridTemplateColumns: '1fr auto',
-    gap: 8
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    fontSize: 14,
-    border: '1px solid var(--border)',
-    outline: 'none',
-    background: '#010805',
-    color: 'var(--text-main)'
-  },
-  button: {
-    padding: '0 14px',
-    border: '1px solid var(--accent-strong)',
-    background: 'rgba(0, 255, 90, 0.12)',
-    color: 'var(--accent)',
-    cursor: 'pointer',
-    fontWeight: 700
-  },
-  selectedInfo: {
-    fontSize: 12,
-    color: 'var(--accent)',
-    padding: '4px 8px',
-    background: 'rgba(0, 255, 90, 0.1)'
-  },
-  list: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8
-  },
-  item: {
-    padding: '12px',
-    border: '1px solid rgba(14, 143, 61, 0.6)',
-    cursor: 'pointer',
-    color: 'var(--text-main)',
-    background: 'rgba(3, 16, 11, 0.8)'
-  },
-  itemSelected: {
-    padding: '12px',
-    border: '1px solid var(--accent-strong)',
-    cursor: 'pointer',
-    color: 'var(--accent)',
-    background: 'rgba(0, 255, 90, 0.1)'
-  },
-  createGroupBtn: {
-    padding: '12px',
-    border: '1px solid var(--accent-strong)',
-    background: 'rgba(0, 255, 90, 0.12)',
-    color: 'var(--accent)',
-    cursor: 'pointer',
-    fontWeight: 700,
-    marginTop: 8
-  }
 }

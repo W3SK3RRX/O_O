@@ -5,6 +5,10 @@ body,
   margin: 0;
 }
 
+#root {
+  min-height: 100dvh;
+}
+
 :root {
   --bg-main: #020907;
   --bg-panel: #03110d;
@@ -15,6 +19,32 @@ body,
   --accent-strong: #00d94d;
   --border: #0e8f3d;
   --danger: #ff5e7f;
+
+  /* Tipografia fluida (mobile-first; encolhe levemente no desktop) */
+  --fs-2xs: clamp(10px, 2.8vw, 11px);
+  --fs-xs: clamp(11px, 3.1vw, 12px);
+  --fs-sm: clamp(13px, 3.4vw, 14px);
+  --fs-base: clamp(15px, 4vw, 16px);
+  --fs-md: clamp(17px, 4.6vw, 19px);
+  --fs-lg: clamp(20px, 6vw, 26px);
+
+  /* Espaçamento */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+
+  /* Alvo de toque mínimo e largura máxima do "quadro" no desktop */
+  --tap: 44px;
+  --shell-max: 940px;
+
+  /* Safe-area (notch / barra inferior) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 
   font-family: 'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Monaco, Consolas, monospace;
   line-height: 1.45;
@@ -50,15 +80,40 @@ body {
 
 input,
 button,
-textarea {
+textarea,
+select {
   font: inherit;
+}
+
+/* Inputs com 16px no mobile evitam o zoom automático do iOS */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+@media (min-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: var(--fs-sm);
+  }
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
 }
 
 a {
   color: var(--accent);
 }
 
-/* Scrollbar estilosa */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Scrollbar oculta (estética) */
 ::-webkit-scrollbar {
   width: 0;
   height: 0;
@@ -68,6 +123,444 @@ a {
 * {
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+/* ============================================================
+   Primitivos de layout responsivo (tema terminal)
+   ============================================================ */
+
+/* Tela: container externo de cada página */
+.screen {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+
+.screen--center {
+  align-items: center;
+  padding:
+    calc(var(--safe-top) + var(--sp-4))
+    calc(var(--safe-right) + var(--sp-3))
+    calc(var(--safe-bottom) + var(--sp-4))
+    calc(var(--safe-left) + var(--sp-3));
+}
+
+/* Shell: o painel principal */
+.shell {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98));
+}
+
+/* Shells de app (chat/lista/admin) ocupam a tela inteira no mobile */
+.shell--app {
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .screen {
+    align-items: center;
+    padding: var(--sp-4);
+  }
+
+  .shell {
+    max-width: var(--shell-max);
+    box-shadow: 0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04);
+  }
+
+  .shell--app {
+    min-height: auto;
+    height: calc(100dvh - var(--sp-6));
+  }
+
+  .screen--form .shell {
+    max-width: 480px;
+  }
+}
+
+/* Cabeçalho */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  padding-top: calc(var(--sp-3) + var(--safe-top));
+  border-bottom: 1px solid var(--border);
+  background: rgba(1, 12, 8, 0.96);
+}
+
+@media (min-width: 768px) {
+  .app-header {
+    padding-top: var(--sp-3);
+  }
+}
+
+.app-header__identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-header__title {
+  display: block;
+  font-size: var(--fs-md);
+  letter-spacing: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header__prompt {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header__actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.subheader {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(14, 143, 61, 0.5);
+}
+
+/* Botões */
+.btn {
+  min-height: var(--tap);
+  padding: 0 var(--sp-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-main);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.btn:active {
+  background: rgba(0, 255, 90, 0.1);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  border-color: var(--accent-strong);
+  background: rgba(0, 255, 90, 0.12);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.btn--danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.icon-btn {
+  width: var(--tap);
+  height: var(--tap);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.icon-btn:active {
+  background: rgba(0, 255, 90, 0.1);
+}
+
+/* Formulários de autenticação */
+.auth-form {
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-4);
+}
+
+.auth-form__tag {
+  color: var(--accent);
+  font-size: var(--fs-xs);
+}
+
+.auth-form__title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  letter-spacing: 1px;
+}
+
+.auth-form__subtitle {
+  margin: 0 0 var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.error-text {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-xs);
+}
+
+.section-title {
+  font-size: var(--fs-xs);
+  color: var(--accent);
+}
+
+.empty-text {
+  padding: var(--sp-5);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* Campos de formulário */
+.field {
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  outline: none;
+  background: #010805;
+  color: var(--text-main);
+}
+
+/* Área rolável genérica */
+.scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ===== Chat ===== */
+.messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.composer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  padding-bottom: calc(var(--sp-2) + var(--safe-bottom));
+  border-top: 1px solid var(--border);
+  background: rgba(1, 12, 8, 0.96);
+}
+
+.composer__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.composer__send {
+  width: var(--tap);
+  height: var(--tap);
+  flex-shrink: 0;
+  border: 1px solid var(--accent-strong);
+  background: rgba(0, 255, 90, 0.12);
+  color: var(--accent);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.composer__send:active {
+  background: rgba(0, 255, 90, 0.2);
+}
+
+/* Bolha de mensagem */
+.bubble {
+  max-width: 85%;
+  padding: var(--sp-3);
+  border: 1px solid;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+@media (min-width: 768px) {
+  .bubble {
+    max-width: 80%;
+  }
+}
+
+.bubble--mine {
+  align-self: flex-end;
+  border-color: #11ad4c;
+  background: rgba(2, 24, 12, 0.96);
+}
+
+.bubble--theirs {
+  align-self: flex-start;
+  border-color: rgba(14, 143, 61, 0.7);
+  background: rgba(1, 16, 10, 0.9);
+}
+
+/* Linha de conversa (lista) */
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: var(--sp-3);
+  display: grid;
+  gap: var(--sp-2);
+  align-content: start;
+}
+
+.list-row {
+  min-height: 60px;
+  padding: var(--sp-3);
+  border: 1px solid rgba(14, 143, 61, 0.5);
+  background: rgba(3, 16, 11, 0.8);
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-1) var(--sp-2);
+  align-items: center;
+}
+
+.list-row:active {
+  background: rgba(0, 255, 90, 0.08);
+}
+
+.list-row--unread {
+  border-color: var(--accent-strong);
+}
+
+/* Card (admin / formulários de lista) */
+.card {
+  padding: var(--sp-3);
+  border: 1px solid rgba(14, 143, 61, 0.6);
+  background: rgba(3, 16, 11, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.card__actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-2);
+}
+
+@media (min-width: 768px) {
+  .card__actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+
+/* Seções de admin */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-2);
+}
+
+@media (min-width: 768px) {
+  .stat-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.stat {
+  padding: var(--sp-4);
+  border: 1px solid rgba(14, 143, 61, 0.6);
+  background: rgba(3, 16, 11, 0.8);
+  text-align: center;
+}
+
+.stat__value {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.stat__label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* FAB (ação principal ao alcance do polegar) */
+.fab {
+  position: fixed;
+  right: calc(var(--safe-right) + var(--sp-4));
+  bottom: calc(var(--safe-bottom) + var(--sp-4));
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--accent-strong);
+  background: rgba(0, 40, 18, 0.96);
+  color: var(--accent);
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px rgba(0, 255, 90, 0.25);
+}
+
+.fab:active {
+  background: rgba(0, 60, 28, 0.96);
+}
+
+/* Utilitários de visibilidade por viewport */
+@media (max-width: 767px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .show-mobile {
+    display: none !important;
+  }
 }
 
 @keyframes toastIn {

@@ -12,6 +12,7 @@ import { encryptMessage, decryptMessage } from '../crypto/message'
 import { decryptWithPrivateKey } from '../crypto/envelope'
 import { importPrivateKey } from '../crypto/keys'
 import { getPrivateKey } from '../crypto/storage'
+import { publicKeyFingerprint } from '../crypto/fingerprint'
 
 const getConversationTitle = (conversation, currentUserId) => {
   if (!conversation) return 'CHAT_SESSION'
@@ -44,6 +45,7 @@ export default function Chat() {
   const [conversationKey, setConversationKey] = useState(null)
   const [decryptedMessages, setDecryptedMessages] = useState({})
   const [conversationTitle, setConversationTitle] = useState('CHAT_SESSION')
+  const [peerFingerprint, setPeerFingerprint] = useState(null)
   const [typingUsers, setTypingUsers] = useState(new Set())
 
   const user = useAuthStore(state => state.user)
@@ -58,7 +60,6 @@ export default function Chat() {
     markAsRead,
     setActiveConversation,
     clearUnread,
-    conversations,
   } = useChatStore()
 
   const messagesEndRef = useRef(null)
@@ -71,17 +72,26 @@ export default function Chat() {
   }, [socket, connectSocket])
 
   useEffect(() => {
-    const conv = conversations.find((c) => c._id === conversationId) ?? { _id: conversationId }
-    setActiveConversation(conv)
+    // Depende apenas de conversationId para não re-disparar (e zerar activeConversation)
+    // a cada atualização da lista de conversas.
+    setActiveConversation({ _id: conversationId })
     clearUnread(conversationId)
     return () => setActiveConversation(null)
-  }, [conversationId, conversations, setActiveConversation, clearUnread])
+  }, [conversationId, setActiveConversation, clearUnread])
 
   useEffect(() => {
+    let cancelled = false
+
+    // Limpa a chave anterior para não descriptografar a conversa nova com chave antiga
+    setConversationKey(null)
+    setPeerFingerprint(null)
+
     const resolveConversationKey = async () => {
       try {
         const conversations = await getConversations()
-        
+
+        if (cancelled) return
+
         if (!Array.isArray(conversations)) {
           console.error('getConversations não retornou array:', conversations)
           throw new Error('Erro ao buscar conversas')
@@ -95,6 +105,15 @@ export default function Chat() {
         }
 
         setConversationTitle(getConversationTitle(conversation, user?._id))
+
+        // Safety number: fingerprint da chave pública do contato (apenas 1-a-1)
+        const others = (conversation.participants || []).filter(
+          (p) => (p?._id ?? p) !== user?._id
+        )
+        if (others.length === 1 && others[0]?.publicKey) {
+          const fp = await publicKeyFingerprint(others[0].publicKey)
+          if (!cancelled) setPeerFingerprint(fp)
+        }
 
         const localData = await loadConversationKey(conversationId)
         const localKeyBase64 = localData?.key
@@ -123,7 +142,7 @@ export default function Chat() {
 
             await saveConversationKey(conversationId, decryptedKeyBase64, serverVersion)
             const key = await importConversationKey(decryptedKeyBase64)
-            setConversationKey(key)
+            if (!cancelled) setConversationKey(key)
             return
           }
 
@@ -133,8 +152,9 @@ export default function Chat() {
         }
 
         const key = await importConversationKey(localKeyBase64)
-        setConversationKey(key)
+        if (!cancelled) setConversationKey(key)
       } catch (error) {
+        if (cancelled) return
         console.error('Erro ao carregar chave da conversa:', error)
         alert('Não foi possível carregar a chave da conversa. Tente recriar a conversa.')
         navigate('/')
@@ -142,6 +162,10 @@ export default function Chat() {
     }
 
     resolveConversationKey()
+
+    return () => {
+      cancelled = true
+    }
   }, [conversationId, navigate, user?._id])
 
   useEffect(() => {
@@ -221,6 +245,7 @@ export default function Chat() {
     socket.on('userTyping', handleUserTyping)
 
     return () => {
+      socket.emit('leaveConversation', conversationId)
       socket.off('newMessage', handleNewMessage)
       socket.off('messageRead', handleMessageRead)
       socket.off('messageDeleted', handleMessageDeleted)
@@ -228,6 +253,15 @@ export default function Chat() {
       socket.off('userTyping', handleUserTyping)
     }
   }, [socket, conversationKey, conversationId, addMessage, updateLastMessage, markAsRead])
+
+  // Limpa o timeout de digitação ao desmontar
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!conversationKey || messages.length === 0) return
@@ -301,25 +335,33 @@ export default function Chat() {
   }
 
   const typingIndicator = typingUsers.size > 0 ? (
-    <div style={styles.typingIndicator}>
+    <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--accent)', padding: '4px 8px', fontStyle: 'italic' }}>
       {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'está' : 'estão'} digitando...
     </div>
   ) : null
 
   return (
-    <div style={styles.container}>
-      <div style={styles.shell}>
-        <div style={styles.header}>
-          <button style={styles.backButton} onClick={() => navigate(-1)} title="Voltar">
+    <div className="screen">
+      <div className="shell shell--app">
+        <header className="app-header">
+          <button className="icon-btn" onClick={() => navigate(-1)} title="Voltar">
             {'<'}
           </button>
-          <div>
-            <strong style={styles.title}>{conversationTitle}</strong>
-            <div style={styles.prompt}>root@node:~$ attach {conversationId?.slice(-6)}</div>
+          <div className="app-header__identity">
+            <strong className="app-header__title">{conversationTitle}</strong>
+            <div className="app-header__prompt">root@node:~$ attach {conversationId?.slice(-6)}</div>
+            {peerFingerprint && (
+              <div
+                style={{ fontSize: 'var(--fs-2xs)', color: 'var(--accent)', letterSpacing: 0.5, marginTop: 2, cursor: 'help', wordBreak: 'break-all' }}
+                title="Compare este código com seu contato por um canal confiável para verificar a identidade (proteção contra MITM)"
+              >
+                🔑 {peerFingerprint}
+              </div>
+            )}
           </div>
-        </div>
+        </header>
 
-        <div style={styles.messages}>
+        <div className="messages">
           {messages.map(msg => (
             <MessageBubble
               key={msg._id}
@@ -327,17 +369,17 @@ export default function Chat() {
                 ...msg,
                 text: msg.text ?? decryptedMessages[msg._id] ?? ''
               }}
-              isMine={(msg.senderId || msg.sender?._id) === user._id}
+              isMine={(msg.senderId || msg.sender?._id) === user?._id}
             />
           ))}
           {typingIndicator}
           <div ref={messagesEndRef} />
         </div>
 
-        <div style={styles.input}>
+        <div className="composer">
           <input
             placeholder="Digite sua mensagem..."
-            style={styles.textInput}
+            className="field composer__input"
             value={text}
             onChange={e => {
               handleTyping()
@@ -345,102 +387,11 @@ export default function Chat() {
             }}
             onKeyDown={e => e.key === 'Enter' && sendMessage()}
           />
-          <button onClick={sendMessage} style={styles.sendButton}>
+          <button onClick={sendMessage} className="composer__send" aria-label="Enviar">
             {'>'}
           </button>
         </div>
       </div>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    minHeight: '100dvh',
-    padding: '16px 10px',
-    display: 'flex',
-    justifyContent: 'center'
-  },
-  shell: {
-    width: '100%',
-    maxWidth: 940,
-    display: 'flex',
-    flexDirection: 'column',
-    border: '1px solid var(--border)',
-    overflow: 'hidden',
-    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
-    minHeight: 'calc(100dvh - 32px)',
-    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12), inset 0 0 20px rgba(0, 255, 90, 0.04)'
-  },
-  header: {
-    padding: '12px 14px',
-    borderBottom: '1px solid var(--border)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    background: 'rgba(1, 12, 8, 0.94)'
-  },
-  title: {
-    fontSize: 14,
-    display: 'block',
-    letterSpacing: 1
-  },
-  prompt: {
-    color: 'var(--text-muted)',
-    fontSize: 12
-  },
-  backButton: {
-    background: 'transparent',
-    border: '1px solid var(--border)',
-    color: 'var(--accent)',
-    fontSize: 18,
-    width: 44,
-    height: 44,
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-  messages: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: 12,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8
-  },
-  typingIndicator: {
-    fontSize: 12,
-    color: 'var(--accent)',
-    padding: '4px 8px',
-    fontStyle: 'italic'
-  },
-  input: {
-    display: 'flex',
-    gap: 8,
-    padding: 10,
-    borderTop: '1px solid var(--border)',
-    background: 'rgba(1, 12, 8, 0.94)'
-  },
-  textInput: {
-    flex: 1,
-    minWidth: 0,
-    padding: '11px 12px',
-    fontSize: 15,
-    border: '1px solid var(--border)',
-    outline: 'none',
-    background: '#010805',
-    color: 'var(--text-main)'
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    border: '1px solid var(--accent-strong)',
-    background: 'rgba(0, 255, 90, 0.12)',
-    color: 'var(--accent)',
-    fontSize: 21,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  }
 }

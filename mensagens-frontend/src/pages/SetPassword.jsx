@@ -32,12 +32,12 @@ export default function SetPassword({ onSuccess }) {
   }
 
   return (
-    <div style={styles.container}>
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <div style={styles.promptLine}>[SET_PASSWORD]</div>
-        <h2 style={styles.title}>Definir Senha</h2>
+    <div className="screen screen--center screen--form">
+      <form onSubmit={handleSubmit} className="shell auth-form">
+        <div className="auth-form__tag">[SET_PASSWORD]</div>
+        <h2 className="auth-form__title">Definir Senha</h2>
 
-        {error && <small style={styles.error}>{error}</small>}
+        {error && <small className="error-text">{error}</small>}
 
         <input
           type="password"
@@ -45,7 +45,8 @@ export default function SetPassword({ onSuccess }) {
           value={password}
           onChange={e => setPasswordValue(e.target.value)}
           required
-          style={styles.input}
+          autoComplete="new-password"
+          className="field"
         />
 
         <input
@@ -54,63 +55,14 @@ export default function SetPassword({ onSuccess }) {
           value={confirm}
           onChange={e => setConfirm(e.target.value)}
           required
-          style={styles.input}
+          autoComplete="new-password"
+          className="field"
         />
 
-        <button type="submit" disabled={loading} style={styles.button}>
+        <button type="submit" disabled={loading} className="btn btn--primary btn--block">
           {loading ? 'SALVANDO...' : 'SALVAR SENHA'}
         </button>
       </form>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    minHeight: '100dvh',
-    display: 'grid',
-    placeItems: 'center',
-    padding: '16px 10px',
-  },
-  form: {
-    width: 'min(100%, 480px)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-    padding: '18px 14px',
-    border: '1px solid var(--border)',
-    background: 'linear-gradient(180deg, rgba(2, 18, 13, 0.98), rgba(0, 9, 6, 0.98))',
-    boxShadow: '0 0 18px rgba(0, 255, 90, 0.12)',
-  },
-  promptLine: {
-    color: 'var(--accent)',
-    fontSize: 12,
-  },
-  title: {
-    margin: 0,
-    fontSize: 20,
-    letterSpacing: 1,
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    minHeight: 44,
-    border: '1px solid var(--border)',
-    outline: 'none',
-    background: '#010805',
-    color: 'var(--text-main)',
-  },
-  button: {
-    padding: '12px',
-    minHeight: 44,
-    border: '1px solid var(--accent-strong)',
-    background: 'rgba(0, 255, 90, 0.12)',
-    color: 'var(--accent)',
-    fontWeight: 700,
-    cursor: 'pointer',
-  },
-  error: {
-    color: 'var(--danger)',
-    fontSize: 12,
-  },
 }

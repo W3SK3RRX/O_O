@@ -8,7 +8,7 @@ import log from './config/logger.js';
 import socketAuth from './config/socket.js';
 import Message from './models/Message.js';
 import Conversation from './models/Conversation.js';
-import { onlineUsers } from './store/onlineUsers.js';
+import { onlineUsers, addUserSocket, removeUserSocket } from './store/onlineUsers.js';
 import env from './config/env.js';
 import { sendPushToUser } from './services/pushService.js';
 
@@ -21,7 +21,8 @@ process.on('unhandledRejection', (reason) => {
 
 process.on('uncaughtException', (err) => {
   log.fatal({ err }, 'uncaughtException');
-  process.exit(1);
+  // Encerra gracefully (fecha sockets/HTTP/Mongo) em vez de matar abruptamente
+  shutdown('uncaughtException');
 });
 
 await connectDatabase();
@@ -30,7 +31,7 @@ const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: env.CORS_ORIGIN.split(','),
+    origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean),
     credentials: true,
   },
 });
@@ -43,22 +44,20 @@ io.use(socketAuth);
 io.on("connection", (socket) => {
   log.info({ email: socket.user.email }, 'Socket conectado');
 
-  // Adiciona usuário à lista de online
-  onlineUsers.set(socket.user._id.toString(), {
-    socketId: socket.id,
-    userId: socket.user._id,
+  // Adiciona conexão à lista de online (suporta múltiplas abas/dispositivos)
+  const becameOnline = addUserSocket(socket.user._id, socket.id, {
     email: socket.user.email,
     name: socket.user.name,
-    lastSeen: new Date(),
-    connectedAt: new Date()
   });
 
-  // Notifica admin sobre novo usuário online
-  io.emit("userOnline", {
-    userId: socket.user._id,
-    name: socket.user.name,
-    email: socket.user.email
-  });
+  // Notifica admin apenas quando o usuário fica online (primeira conexão)
+  if (becameOnline) {
+    io.emit("userOnline", {
+      userId: socket.user._id,
+      name: socket.user.name,
+      email: socket.user.email
+    });
+  }
 
   /**
    * Entrar em uma conversa (room)
@@ -72,6 +71,13 @@ io.on("connection", (socket) => {
     if (!conversation) return;
 
     socket.join(conversationId);
+  });
+
+  /**
+   * Sair de uma conversa (room)
+   */
+  socket.on("leaveConversation", (conversationId) => {
+    socket.leave(conversationId);
   });
 
   /**
@@ -136,9 +142,16 @@ io.on("connection", (socket) => {
   socket.on("readMessage", async (messageId) => {
     const message = await Message.findById(messageId);
     if (!message) return;
-    
+
+    // Autorização: o usuário precisa participar da conversa da mensagem
+    const conversation = await Conversation.findOne({
+      _id: message.conversationId,
+      participants: socket.user._id,
+    });
+    if (!conversation) return;
+
     await Message.findByIdAndUpdate(messageId, { read: true });
-    
+
     // Notifica quem enviou que a mensagem foi lida
     io.to(message.conversationId.toString()).emit("messageRead", {
       messageId,
@@ -151,11 +164,18 @@ io.on("connection", (socket) => {
    * Marcar todas mensagens de uma conversa como lidas
    */
   socket.on("markConversationRead", async (conversationId) => {
+    // Autorização: o usuário precisa participar da conversa
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: socket.user._id,
+    });
+    if (!conversation) return;
+
     await Message.updateMany(
       { conversationId, read: false, sender: { $ne: socket.user._id } },
       { $set: { read: true } }
     );
-    
+
     io.to(conversationId).emit("conversationRead", {
       conversationId,
       readBy: socket.user._id,
@@ -205,8 +225,11 @@ io.on("connection", (socket) => {
     
     // Apenas quem enviou pode editar
     if (message.sender.toString() !== socket.user._id.toString()) return;
-    
-    await Message.findByIdAndUpdate(messageId, { 
+
+    // Não permite editar mensagem já apagada (ressuscitaria conteúdo)
+    if (message.deleted) return;
+
+    await Message.findByIdAndUpdate(messageId, {
       edited: true,
       cipherText,
       iv
@@ -222,16 +245,11 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     log.info({ email: socket.user.email }, 'Socket desconectado');
-    
-    const userId = socket.user._id.toString();
-    const userData = onlineUsers.get(userId);
 
-    // Remove apenas se o socket desconectado for o socket ativo do usuário
-    // (evita remover conexão nova em casos de reconexão rápida/múltiplas abas)
-    if (userData?.socketId === socket.id) {
-      onlineUsers.delete(userId);
+    // Remove apenas esta conexão; só fica offline quando não há mais sockets
+    const becameOffline = removeUserSocket(socket.user._id, socket.id);
 
-      // Notifica admin sobre usuário offline
+    if (becameOffline) {
       io.emit("userOffline", {
         userId: socket.user._id,
         lastSeen: new Date()
@@ -245,8 +263,17 @@ const server = httpServer.listen(PORT, () => {
 });
 
 // Graceful shutdown
+let shuttingDown = false;
 const shutdown = async (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
   log.info({ signal }, 'Encerrando gracefully...');
+
+  // Fecha os WebSockets primeiro; senão server.close() nunca chama o callback
+  // (conexões Socket.io de longa duração mantêm o servidor vivo).
+  io.close();
+
   server.close(async () => {
     await mongoose.connection.close();
     log.info('Conexões encerradas. Processo finalizado.');

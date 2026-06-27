@@ -2,15 +2,17 @@ import express from 'express';
 // FIX: Imports nomeados (com chaves)
 import { protect } from '../middlewares/authMiddleware.js';
 import { adminOnly } from '../middlewares/adminOnly.js';
-import { 
-    getDashboardStats, 
+import { validate } from '../middlewares/validate.js';
+import { adminCreateUserSchema } from '../validations/user.validation.js';
+import {
+    getDashboardStats,
     getOnlineUsers,
-    getAllUsers, 
-    createUser, 
+    getAllUsers,
+    createUser,
     updateUser,
     toggleUserStatus,
     resetUserPassword,
-    deleteUser 
+    deleteUser
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -21,7 +23,7 @@ router.use(protect, adminOnly);
 router.get('/dashboard', getDashboardStats);
 router.get('/online', getOnlineUsers);
 router.get('/users', getAllUsers);
-router.post('/users', createUser);
+router.post('/users', validate(adminCreateUserSchema), createUser);
 router.patch('/users/:id', updateUser);
 router.patch('/users/:id/status', toggleUserStatus);
 router.post('/users/:id/reset-password', resetUserPassword);

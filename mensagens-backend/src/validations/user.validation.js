@@ -38,3 +38,11 @@ export const changePasswordSchema = z.object({
 export const searchUsersSchema = z.object({
   search: z.string().min(1, 'Termo de busca é obrigatório'),
 });
+
+// Schema para criação de usuário pelo admin
+export const adminCreateUserSchema = z.object({
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
+  role: z.enum(['user', 'admin']).optional().default('user'),
+});

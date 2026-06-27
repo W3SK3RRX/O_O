@@ -23,13 +23,26 @@ export const createConversation = async (req, res) => {
     }
 
     let conversation = await Conversation.findOne({
-      participants: { $all: [senderId, targetUserId] },
+      isGroup: false,
+      participants: { $all: [senderId, targetUserId], $size: 2 },
     });
 
     if (!conversation) {
-      conversation = await Conversation.create({
-        participants: [senderId, targetUserId],
-      });
+      try {
+        conversation = await Conversation.create({
+          participants: [senderId, targetUserId],
+        });
+      } catch (err) {
+        // Race: outra requisição criou a mesma conversa 1-a-1 (índice único)
+        if (err.code === 11000) {
+          conversation = await Conversation.findOne({
+            isGroup: false,
+            participants: { $all: [senderId, targetUserId], $size: 2 },
+          });
+        } else {
+          throw err;
+        }
+      }
     }
 
     await conversation.populate('participants', 'name email avatar publicKey');
@@ -44,19 +57,18 @@ export const createConversation = async (req, res) => {
 
 export const createGroup = async (req, res) => {
   try {
+    // name e participants já validados pelo schema (createGroupSchema)
     const { name, participants } = req.body;
     const senderId = req.user._id;
 
-    if (!name || !participants || !Array.isArray(participants)) {
-      return res.status(400).json({ message: 'Nome e participantes são obrigatórios' });
+    // Garante que todos os participantes informados existem
+    const foundUsers = await User.find({ _id: { $in: participants } }).select('_id');
+    if (foundUsers.length !== new Set(participants).size) {
+      return res.status(400).json({ message: 'Um ou mais participantes não existem' });
     }
 
-    if (participants.length < 2) {
-      return res.status(400).json({ message: 'Grupo precisa de pelo menos 3 participantes' });
-    }
+    const uniqueParticipants = [...new Set([senderId.toString(), ...participants])];
 
-    const uniqueParticipants = [...new Set([senderId, ...participants])];
-    
     const group = await Conversation.create({
       name,
       participants: uniqueParticipants,
@@ -94,7 +106,12 @@ export const addParticipant = async (req, res) => {
       return res.status(403).json({ message: 'Apenas o criador pode adicionar participantes' });
     }
 
-    if (conversation.participants.includes(userId)) {
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+
+    if (conversation.participants.some((p) => String(p) === String(userId))) {
       return res.status(400).json({ message: 'Usuário já é participante' });
     }
 
@@ -149,13 +166,8 @@ export const removeParticipant = async (req, res) => {
 export const saveConversationKeys = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const encryptedKeys = req.validatedBody?.encryptedKeys || req.body.encryptedKeys;
-    const keyVersion = req.validatedBody?.keyVersion || req.body.keyVersion;
+    const { encryptedKeys, keyVersion } = req.body;
     const userId = req.user._id;
-
-    if (!encryptedKeys || typeof encryptedKeys !== 'object') {
-      return res.status(400).json({ message: 'encryptedKeys é obrigatório' });
-    }
 
     const conversation = await Conversation.findOne({
       _id: conversationId,
@@ -187,11 +199,10 @@ export const saveConversationKeys = async (req, res) => {
 export const getUserConversations = async (req, res) => {
   try {
     const userId = req.user._id;
-    // Usa dados validados ou query original
-    const page = req.validatedQuery?.page || req.query.page || 1;
-    const limit = req.validatedQuery?.limit || req.query.limit || 20;
+    // page/limit já validados e coeridos para inteiros pelo paginationSchema
+    const { page, limit } = req.validatedQuery;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (page - 1) * limit;
 
     const conversations = await Conversation.find({
       participants: userId,
@@ -200,7 +211,7 @@ export const getUserConversations = async (req, res) => {
       .populate('lastMessage')
       .sort({ updatedAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(limit);
 
     const total = await Conversation.countDocuments({ participants: userId });
 
@@ -209,10 +220,10 @@ export const getUserConversations = async (req, res) => {
     res.status(200).json({
       conversations,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total,
-        pages: Math.ceil(total / parseInt(limit)),
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (error) {

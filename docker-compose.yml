@@ -28,6 +28,10 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       CORS_ORIGIN: https://oo.infinityforge.com.br
       LOG_LEVEL: info
+      # Web Push (VAPID) — defina estes valores no .env da raiz na VPS
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT}
     ports:
       - "3000:3000"
     depends_on:

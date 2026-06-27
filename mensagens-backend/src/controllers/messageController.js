@@ -5,10 +5,8 @@ import log from '../config/logger.js';
 export const sendMessage = async (req, res) => {
   try {
     const userId = req.user._id;
-    // Usa dados validados ou originais
-    const conversationId = req.validatedBody?.conversationId || req.body.conversationId;
-    const cipherText = req.validatedBody?.cipherText || req.body.cipherText;
-    const iv = req.validatedBody?.iv || req.body.iv;
+    // conversationId/cipherText/iv já validados pelo sendMessageSchema
+    const { conversationId, cipherText, iv } = req.body;
 
     log.info({ conversationId, userId }, 'Enviando mensagem');
 
@@ -46,9 +44,8 @@ export const sendMessage = async (req, res) => {
 export const getMessagesByConversation = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    // Usa dados validados ou query original
-    const page = req.validatedQuery?.page || req.query.page || 1;
-    const limit = req.validatedQuery?.limit || req.query.limit || 20;
+    // page/limit já validados e coeridos para inteiros pelo paginationSchema
+    const { page, limit } = req.validatedQuery;
     const userId = req.user._id;
 
     const conversation = await Conversation.findOne({
@@ -61,13 +58,13 @@ export const getMessagesByConversation = async (req, res) => {
       return res.status(403).json({ message: "Acesso negado" });
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (page - 1) * limit;
 
     const messages = await Message.find({ conversationId })
       .populate('sender', 'name email avatar')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(limit);
 
     const total = await Message.countDocuments({ conversationId });
 
@@ -76,10 +73,10 @@ export const getMessagesByConversation = async (req, res) => {
     res.json({
       messages,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total,
-        pages: Math.ceil(total / parseInt(limit)),
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (error) {

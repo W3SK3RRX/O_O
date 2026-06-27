@@ -5,15 +5,18 @@ import { encryptKeyBackup, decryptKeyBackup } from '../utils/keyBackupCipher.js'
 export const searchUsers = async (req, res) => {
   try {
     // Usa dados validados do middleware ou query original
-    const search = req.validatedQuery?.search || req.query.search;
+    const search = req.validatedQuery.search;
     const currentUserId = req.user._id;
 
     log.info({ search, userId: currentUserId }, 'Busca de usuários');
 
+    // Escapa metacaracteres de regex para evitar ReDoS / matches indesejados
+    const safeSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     const users = await User.find({
       $or: [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
+        { name: { $regex: safeSearch, $options: 'i' } },
+        { email: { $regex: safeSearch, $options: 'i' } },
       ],
       _id: { $ne: currentUserId },
     }).select('name email avatar publicKey');

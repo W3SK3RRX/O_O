@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import User from '../models/User.js';
 import Message from '../models/Message.js';
 import Conversation from '../models/Conversation.js';
@@ -52,39 +53,39 @@ export const getAllUsers = async (req, res) => {
 
 export const createUser = async (req, res) => {
     try {
+        // name/email/password/role já validados pelo adminCreateUserSchema
         const { name, email, password, role } = req.body;
-
-        const userExists = await User.findOne({ email });
-
-        if (userExists) {
-            return res.status(400).json({ message: 'Usuário já existe' });
-        }
 
         const isAdmin = role === 'admin';
 
-        const user = await User.create({
-            name,
-            email,
-            password,
-            role,
-            isAdmin,
-            active: true
-        });
-
-        if (user) {
-            res.status(201).json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                isAdmin: user.isAdmin,
-                active: user.active,
+        let user;
+        try {
+            user = await User.create({
+                name,
+                email,
+                password,
+                role,
+                isAdmin,
+                active: true
             });
-        } else {
-            res.status(400).json({ message: 'Dados de usuário inválidos' });
+        } catch (err) {
+            if (err.code === 11000) {
+                return res.status(409).json({ message: 'Usuário já existe' });
+            }
+            throw err;
         }
+
+        res.status(201).json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            isAdmin: user.isAdmin,
+            active: user.active,
+        });
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao criar usuário', error: error.message });
+        log.error({ error }, 'Erro ao criar usuário');
+        res.status(500).json({ message: 'Erro ao criar usuário' });
     }
 };
 
@@ -156,7 +157,8 @@ export const resetUserPassword = async (req, res) => {
             return res.status(404).json({ message: 'Usuário não encontrado' });
         }
 
-        const newPassword = Math.random().toString(36).slice(-8);
+        // Senha temporária criptograficamente segura (12 chars hex)
+        const newPassword = crypto.randomBytes(9).toString('base64url').slice(0, 12);
         // Deixa o hash para o hook pre('save') do model
         user.password = newPassword;
         await user.save();

@@ -20,6 +20,10 @@ export const protect = async (req, res, next) => {
       return next(new UnauthorizedError('Usuário não encontrado'));
     }
 
+    if (req.user.active === false) {
+      return next(new UnauthorizedError('Conta desativada'));
+    }
+
     next();
   } catch (error) {
     log.warn({ error: error.message, requestId: req.requestId }, 'Token inválido');

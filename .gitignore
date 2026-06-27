@@ -1,2 +1,8 @@
 .superpowers/
 .claude/
+
+# Variáveis de ambiente / segredos
+.env
+.env.*
+!.env.example
+**/.env

@@ -1,7 +1,7 @@
 import express from 'express';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validate } from '../middlewares/validate.js';
-import { createConversationSchema, saveConversationKeysSchema, paginationSchema } from '../validations/message.validation.js';
+import { createConversationSchema, createGroupSchema, participantSchema, saveConversationKeysSchema, paginationSchema } from '../validations/message.validation.js';
 import { 
   createConversation, 
   createGroup,
@@ -16,9 +16,9 @@ const router = express.Router();
 router.use(protect);
 
 router.post('/', validate(createConversationSchema), createConversation);
-router.post('/group', createGroup);
-router.post('/:conversationId/participants', addParticipant);
-router.delete('/:conversationId/participants', removeParticipant);
+router.post('/group', validate(createGroupSchema), createGroup);
+router.post('/:conversationId/participants', validate(participantSchema), addParticipant);
+router.delete('/:conversationId/participants', validate(participantSchema), removeParticipant);
 router.get('/', validate(paginationSchema, 'query'), getUserConversations);
 router.put('/:conversationId/keys', validate(saveConversationKeysSchema), saveConversationKeys);
 

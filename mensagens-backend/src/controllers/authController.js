@@ -1,16 +1,17 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import log from '../config/logger.js';
+import env from '../config/env.js';
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+  return jwt.sign({ id, type: 'access' }, env.JWT_SECRET, {
+    expiresIn: env.JWT_EXPIRES_IN,
   });
 };
 
 const generateRefreshToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: '7d',
+  return jwt.sign({ id, type: 'refresh' }, env.JWT_REFRESH_SECRET, {
+    expiresIn: env.JWT_REFRESH_EXPIRES_IN,
   });
 };
 
@@ -20,18 +21,21 @@ export const register = async (req, res) => {
 
     log.info({ email }, 'Tentativa de registro');
 
-    const userExists = await User.findOne({ email });
-
-    if (userExists) {
-      log.warn({ email }, 'Usuário já existe');
-      return res.status(400).json({ message: 'Usuário já existe' });
+    let user;
+    try {
+      user = await User.create({
+        name,
+        email,
+        password,
+      });
+    } catch (err) {
+      // Índice único de email (trata também race condition de cadastro simultâneo)
+      if (err.code === 11000) {
+        log.warn({ email }, 'Usuário já existe');
+        return res.status(409).json({ message: 'Usuário já existe' });
+      }
+      throw err;
     }
-
-    const user = await User.create({
-      name,
-      email,
-      password,
-    });
 
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
@@ -47,7 +51,9 @@ export const register = async (req, res) => {
       hasPrivateKeyBackup: !!user.privateKeyBackup,
       token,
       refreshToken,
-      vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
+      role: user.role || (user.isAdmin ? 'admin' : 'user'),
+      isAdmin: user.isAdmin,
+      vapidPublicKey: env.VAPID_PUBLIC_KEY,
     });
   } catch (error) {
     log.error({ error }, 'Erro ao registrar usuário');
@@ -68,6 +74,11 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: 'Email ou senha inválidos' });
     }
 
+    if (user.active === false) {
+      log.warn({ userId: user._id }, 'Login bloqueado - usuário desativado');
+      return res.status(403).json({ message: 'Conta desativada' });
+    }
+
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
@@ -84,7 +95,7 @@ export const login = async (req, res) => {
       refreshToken,
       role: user.role || (user.isAdmin ? 'admin' : 'user'),
       isAdmin: user.isAdmin,
-      vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
+      vapidPublicKey: env.VAPID_PUBLIC_KEY,
     });
   } catch (error) {
     log.error({ error }, 'Erro ao fazer login');
@@ -100,12 +111,18 @@ export const refreshToken = async (req, res) => {
       return res.status(400).json({ message: 'Refresh token é obrigatório' });
     }
 
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const decoded = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET);
+
+    // Garante que o token apresentado é de fato um refresh token
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({ message: 'Token inválido ou expirado' });
+    }
+
     const user = await User.findById(decoded.id).select('-password');
 
-    if (!user) {
-      log.warn({ userId: decoded.id }, 'Refresh token - usuário não encontrado');
-      return res.status(401).json({ message: 'Token inválido' });
+    if (!user || user.active === false) {
+      log.warn({ userId: decoded.id }, 'Refresh token - usuário inválido ou desativado');
+      return res.status(401).json({ message: 'Token inválido ou expirado' });
     }
 
     const newToken = generateToken(user._id);
@@ -134,7 +151,7 @@ export const getMe = async (req, res) => {
       hasPrivateKeyBackup: !!req.user.privateKeyBackup,
       role: req.user.role || (req.user.isAdmin ? 'admin' : 'user'),
       isAdmin: req.user.isAdmin,
-      vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
+      vapidPublicKey: env.VAPID_PUBLIC_KEY,
     };
     res.status(200).json(user);
   } catch (error) {

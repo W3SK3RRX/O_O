@@ -1,5 +1,6 @@
 .superpowers/
 .claude/
+.playwright-mcp/
 
 # Variáveis de ambiente / segredos
 .env

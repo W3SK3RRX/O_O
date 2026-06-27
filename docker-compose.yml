@@ -26,6 +26,10 @@ services:
       MONGO_URI: mongodb://mongodb:27017/mensagens
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      # Cifra os backups de chave privada no banco. DEVE permanecer estável e
+      # independente do JWT_SECRET — se mudar, backups existentes ficam ilegíveis.
+      # Se vazio, faz fallback para JWT_SECRET (comportamento legado).
+      KEY_BACKUP_SECRET: ${KEY_BACKUP_SECRET:-}
       CORS_ORIGIN: https://oo.infinityforge.com.br
       LOG_LEVEL: info
       # Web Push (VAPID) — defina estes valores no .env da raiz na VPS

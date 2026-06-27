@@ -8,6 +8,7 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 export async function registerPush(vapidPublicKey) {
+  if (!vapidPublicKey) return;
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
   const registration = await navigator.serviceWorker.register('/sw.js');

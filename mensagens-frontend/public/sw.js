@@ -1,3 +1,4 @@
+/* global clients */
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {};
   const title = data.title ?? 'Nova mensagem';
@@ -13,7 +14,7 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const conversationId = event.notification.data?.conversationId;
-  const url = conversationId ? `/?conversation=${conversationId}` : '/';
+  const url = conversationId ? `/chat/${conversationId}` : '/';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {

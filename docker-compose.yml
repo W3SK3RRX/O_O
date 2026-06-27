@@ -32,6 +32,13 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT}
+      # Seed (opcional) — usado só pelo script createAdmin.js; vazio = pula a criação
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrador}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_TEST_NAME: ${SEED_TEST_NAME:-Usuário Teste}
+      SEED_TEST_EMAIL: ${SEED_TEST_EMAIL:-}
+      SEED_TEST_PASSWORD: ${SEED_TEST_PASSWORD:-}
     ports:
       - "3000:3000"
     depends_on:

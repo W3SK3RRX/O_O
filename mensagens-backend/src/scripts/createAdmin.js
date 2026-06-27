@@ -4,52 +4,57 @@ import User from '../models/User.js'; // Importação atualizada para ESM
 
 dotenv.config();
 
+/**
+ * Cria um usuário se ainda não existir. As credenciais vêm de variáveis de
+ * ambiente — nada de senha hardcoded no repositório. Sem senha definida, a
+ * criação é pulada (não usamos default fraco).
+ */
+const ensureUser = async ({ name, email, password, isAdmin = false }) => {
+  const label = isAdmin ? 'ADMIN' : 'usuário';
+
+  if (!email || !password) {
+    console.log(`⏭️  ${label} pulado: defina email e senha via env (ver .env.example).`);
+    return;
+  }
+
+  if (await User.findOne({ email })) {
+    console.log(`⚠️  ${label} já existe: ${email}`);
+    return;
+  }
+
+  await User.create({
+    name: name || email,
+    email,
+    password, // hashada automaticamente pelo Model
+    role: isAdmin ? 'admin' : 'user',
+    isAdmin,
+    avatar: '',
+    publicKey: null, // gerada no primeiro login pelo Frontend
+  });
+  console.log(`✅ ${label} criado: ${email}`);
+};
+
 const createUsers = async () => {
   try {
-    // Conecta ao banco
     await mongoose.connect(process.env.MONGO_URI);
     console.log('🔌 Conectado ao MongoDB...');
 
-    // --- CRIAR ADMIN ---
-    const adminEmail = 'admin@admin.com';
-    const adminExists = await User.findOne({ email: adminEmail });
+    await ensureUser({
+      name: process.env.SEED_ADMIN_NAME,
+      email: process.env.SEED_ADMIN_EMAIL,
+      password: process.env.SEED_ADMIN_PASSWORD,
+      isAdmin: true,
+    });
 
-    if (!adminExists) {
-      await User.create({
-        name: 'Administrador',
-        email: adminEmail,
-        password: '123', // A senha será hashada automaticamente pelo Model
-        role: 'admin',
-        isAdmin: true,
-        avatar: '',
-        publicKey: null // Será gerada no primeiro login pelo Frontend
-      });
-      console.log('✅ Usuário ADMIN criado: admin@admin.com / 123');
-    } else {
-      console.log('⚠️ Usuário ADMIN já existe.');
-    }
-
-    // --- CRIAR USUÁRIO TESTE ---
-    const testEmail = 'teste@teste.com';
-    const testUserExists = await User.findOne({ email: testEmail });
-
-    if (!testUserExists) {
-      await User.create({
-        name: 'Usuário Teste',
-        email: testEmail,
-        password: '123',
-        isAdmin: false,
-        avatar: '',
-        publicKey: null // Será gerada no primeiro login pelo Frontend
-      });
-      console.log('✅ Usuário TESTE criado: teste@teste.com / 123');
-    } else {
-      console.log('⚠️ Usuário TESTE já existe.');
-    }
+    await ensureUser({
+      name: process.env.SEED_TEST_NAME,
+      email: process.env.SEED_TEST_EMAIL,
+      password: process.env.SEED_TEST_PASSWORD,
+      isAdmin: false,
+    });
 
     console.log('🏁 Processo finalizado.');
-    process.exit();
-
+    process.exit(0);
   } catch (error) {
     console.error('❌ Erro ao criar usuários:', error);
     process.exit(1);

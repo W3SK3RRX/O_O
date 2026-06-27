@@ -31,6 +31,7 @@ export default function Login() {
         role: data.role,
         isAdmin: data.isAdmin,
         mustChangePassword: data.mustChangePassword,
+        vapidPublicKey: data.vapidPublicKey,
       }
 
       await login(user, token, refreshToken, password)

@@ -9,6 +9,7 @@ export const useChatStore = create((set, get) => ({
   messages: [],
   activeConversation: null,
   loading: false,
+  error: null,
   pagination: null,
   unreadCounts: {},
 
@@ -32,14 +33,16 @@ export const useChatStore = create((set, get) => ({
     }),
 
   fetchConversations: async () => {
-    set({ loading: true })
+    set({ loading: true, error: null })
     try {
       const data = await getConversations()
       // API já extrai o array em chat.api.js
-      set({ conversations: data, loading: false })
+      set({ conversations: data, loading: false, error: null })
     } catch (error) {
       console.error("Erro ao buscar conversas:", error)
-      set({ conversations: [], loading: false })
+      // Não zera a lista já carregada numa falha transitória (rede/cold-open):
+      // preserva o que existe e sinaliza o erro para a UI oferecer "tentar de novo".
+      set({ loading: false, error: error?.message || 'Erro ao buscar conversas' })
     }
   },
 

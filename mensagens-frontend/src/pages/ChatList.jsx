@@ -24,13 +24,31 @@ export default function ChatList() {
   const logout = useAuthStore(state => state.logout)
   const connect = useSocketStore(state => state.connect)
   const disconnect = useSocketStore(state => state.disconnect)
+  const socket = useSocketStore(state => state.socket)
 
-  const { conversations, fetchConversations, loading, unreadCounts, clearUnread } = useChatStore()
+  const { conversations, fetchConversations, loading, error, unreadCounts, clearUnread } = useChatStore()
 
   useEffect(() => {
     connect()
     fetchConversations()
   }, [connect, fetchConversations])
+
+  // Recarrega as conversas quando o app volta ao foco e quando o socket
+  // reconecta. Cobre o cold-open do PWA (rede ainda não pronta na 1ª tentativa)
+  // e quedas de conexão — sem isso, uma falha transitória deixa a lista vazia.
+  useEffect(() => {
+    const refetch = () => {
+      if (document.visibilityState === 'visible') fetchConversations()
+    }
+    window.addEventListener('focus', refetch)
+    document.addEventListener('visibilitychange', refetch)
+    if (socket) socket.on('connect', fetchConversations)
+    return () => {
+      window.removeEventListener('focus', refetch)
+      document.removeEventListener('visibilitychange', refetch)
+      if (socket) socket.off('connect', fetchConversations)
+    }
+  }, [socket, fetchConversations])
 
   const handleLogout = () => {
     disconnect()
@@ -82,7 +100,20 @@ export default function ChatList() {
         </div>
 
         <div className="list">
-          {conversations.length === 0 && (
+          {conversations.length === 0 && error && (
+            <div className="empty-text" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', alignItems: 'flex-start' }}>
+              <span>{'>'} falha ao carregar conversas</span>
+              <button
+                className="icon-btn"
+                onClick={() => fetchConversations()}
+                style={{ width: 'auto', padding: '0 var(--sp-2)', fontSize: 'var(--fs-xs)' }}
+              >
+                tentar de novo
+              </button>
+            </div>
+          )}
+
+          {conversations.length === 0 && !error && (
             <p className="empty-text">{'>'} nenhum canal encontrado</p>
           )}
 

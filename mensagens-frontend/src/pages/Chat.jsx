@@ -175,8 +175,17 @@ export default function Chat() {
   useEffect(() => {
     if (!socket || !conversationKey) return
 
-    socket.emit('joinConversation', conversationId)
-    socket.emit('markConversationRead', conversationId)
+    // Entra na sala agora e também a cada reconexão. O socket.io reusa a mesma
+    // instância no cliente ao reconectar, então sem religar o listener de
+    // 'connect' o servidor perderia a sala (rooms são por conexão) e o usuário
+    // pararia de receber/ecoar mensagens em tempo real após uma queda.
+    const joinRoom = () => {
+      socket.emit('joinConversation', conversationId)
+      socket.emit('markConversationRead', conversationId)
+    }
+
+    joinRoom()
+    socket.on('connect', joinRoom)
 
     const handleNewMessage = async payload => {
       if (payload.conversationId !== conversationId) return
@@ -246,6 +255,7 @@ export default function Chat() {
 
     return () => {
       socket.emit('leaveConversation', conversationId)
+      socket.off('connect', joinRoom)
       socket.off('newMessage', handleNewMessage)
       socket.off('messageRead', handleMessageRead)
       socket.off('messageDeleted', handleMessageDeleted)

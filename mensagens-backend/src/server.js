@@ -108,7 +108,7 @@ io.on("connection", (socket) => {
       /**
        * 🔐 Emite payload criptografado
        */
-      io.to(conversationId).emit("newMessage", {
+      const payload = {
         _id: message._id,
         conversationId,
         senderId: socket.user._id,
@@ -116,7 +116,15 @@ io.on("connection", (socket) => {
         cipherText,
         iv,
         createdAt: message.createdAt,
-      });
+      };
+
+      // Emite para a sala (demais participantes que estão com a conversa aberta).
+      io.to(conversationId).emit("newMessage", payload);
+
+      // Garante a entrega ao próprio remetente mesmo que ele não esteja na sala
+      // (ex.: logo após uma reconexão, antes do re-join). O cliente deduplica
+      // por _id, então não há risco de duplicar a bolha.
+      socket.emit("newMessage", payload);
 
       // Notify offline participants via Web Push
       const offlineParticipants = conversation.participants.filter(

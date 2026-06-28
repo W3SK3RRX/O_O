@@ -8,6 +8,7 @@ export const useSocketStore = create((set, get) => ({
   socket: null,
   connected: false,
   connectionError: null,
+  refreshing: false,
 
   connect: () => {
     const token = useAuthStore.getState().token
@@ -15,10 +16,16 @@ export const useSocketStore = create((set, get) => ({
 
     try {
       const socket = io(import.meta.env.VITE_API_URL, {
-        auth: { token },
+        // `auth` como função: o socket.io reavalia o token a cada tentativa de
+        // (re)conexão. Sem isso, o token capturado no primeiro connect expira em
+        // ~1h e toda reconexão posterior falha na autenticação, matando o socket.
+        auth: (cb) => cb({ token: useAuthStore.getState().token }),
         reconnection: true,
-        reconnectionAttempts: 5,
+        // Quedas de socket são frequentes (rede móvel, app em background). Nunca
+        // desistir de reconectar: enquanto houver token válido, o socket volta.
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
         timeout: 10000,
       })
 
@@ -59,6 +66,29 @@ export const useSocketStore = create((set, get) => ({
       socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error.message)
         set({ connectionError: error.message })
+
+        // Erro de autenticação (token expirou): renova o access token uma vez.
+        // Como `auth` é função, a próxima tentativa automática de reconexão já
+        // usará o token novo. Erros de transporte (rede) não entram aqui — esses
+        // o socket.io resolve sozinho com o backoff de reconexão.
+        const msg = (error?.message || '').toLowerCase()
+        const isAuthError =
+          msg.includes('autorizado') ||
+          msg.includes('token') ||
+          msg.includes('usuário')
+
+        if (isAuthError && !get().refreshing) {
+          set({ refreshing: true })
+          useAuthStore
+            .getState()
+            .refreshAccessToken()
+            .catch(() => {
+              // Refresh falhou (sessão realmente expirada): para de reconectar
+              // para não martelar o servidor. O fluxo do axios cuida do logout.
+              get().disconnect()
+            })
+            .finally(() => set({ refreshing: false }))
+        }
       })
 
       socket.on('error', (error) => {
@@ -80,6 +110,6 @@ export const useSocketStore = create((set, get) => ({
       socket.removeAllListeners()
       socket.disconnect()
     }
-    set({ socket: null, connected: false, connectionError: null })
+    set({ socket: null, connected: false, connectionError: null, refreshing: false })
   }
 }))

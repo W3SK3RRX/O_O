@@ -7,8 +7,9 @@ import {
   createGroup,
   addParticipant,
   removeParticipant,
-  saveConversationKeys, 
-  getUserConversations 
+  saveConversationKeys,
+  getUserConversations,
+  markConversationRead
 } from '../controllers/conversationController.js';
 
 const router = express.Router();
@@ -21,5 +22,6 @@ router.post('/:conversationId/participants', validate(participantSchema), addPar
 router.delete('/:conversationId/participants', validate(participantSchema), removeParticipant);
 router.get('/', validate(paginationSchema, 'query'), getUserConversations);
 router.put('/:conversationId/keys', validate(saveConversationKeysSchema), saveConversationKeys);
+router.patch('/:conversationId/read', markConversationRead);
 
 export default router;

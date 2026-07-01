@@ -38,6 +38,10 @@ const messageSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Índice composto: serve a listagem paginada (ordena por createdAt desc) e a
+// contagem de não lidas (createdAt > lastReadAt por conversa).
+messageSchema.index({ conversationId: 1, createdAt: -1 });
+
 // FIX: Exportação padrão ESM
 const Message = mongoose.model('Message', messageSchema);
 export default Message;

@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useChatStore } from '../store/chat.store'
 import { useSocketStore } from '../store/socket.store'
 import { useAuthStore } from '../store/auth.store'
 import MessageBubble from '../components/MessageBubble'
+import DaySeparator from '../components/DaySeparator'
+import { isSameDay, formatDayLabel } from '../utils/formatDate'
 
-import { getConversations } from '../api/chat.api'
+import { getConversations, markConversationRead } from '../api/chat.api'
 import { loadConversationKey, saveConversationKey } from '../crypto/conv-storage'
 import { importConversationKey } from '../crypto/conversation'
 import { encryptMessage, decryptMessage } from '../crypto/message'
@@ -76,6 +78,9 @@ export default function Chat() {
     // a cada atualização da lista de conversas.
     setActiveConversation({ _id: conversationId })
     clearUnread(conversationId)
+    // Persiste a leitura no servidor (reforço ao socket): garante que o badge
+    // fique zerado mesmo após reload ou se o socket estiver caído.
+    markConversationRead(conversationId).catch(() => {})
     return () => setActiveConversation(null)
   }, [conversationId, setActiveConversation, clearUnread])
 
@@ -376,16 +381,26 @@ export default function Chat() {
         </header>
 
         <div className="messages">
-          {messages.map(msg => (
-            <MessageBubble
-              key={msg._id}
-              message={{
-                ...msg,
-                text: msg.text ?? decryptedMessages[msg._id] ?? ''
-              }}
-              isMine={(msg.senderId || msg.sender?._id) === user?._id}
-            />
-          ))}
+          {messages.map((msg, i) => {
+            const prev = messages[i - 1]
+            const showSeparator =
+              msg.createdAt &&
+              (!prev?.createdAt ||
+                !isSameDay(new Date(prev.createdAt), new Date(msg.createdAt)))
+
+            return (
+              <Fragment key={msg._id}>
+                {showSeparator && <DaySeparator label={formatDayLabel(msg.createdAt)} />}
+                <MessageBubble
+                  message={{
+                    ...msg,
+                    text: msg.text ?? decryptedMessages[msg._id] ?? ''
+                  }}
+                  isMine={(msg.senderId || msg.sender?._id) === user?._id}
+                />
+              </Fragment>
+            )
+          })}
           {typingIndicator}
           <div ref={messagesEndRef} />
         </div>

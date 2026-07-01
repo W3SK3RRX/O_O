@@ -1,8 +1,11 @@
+import { formatDateTime } from '../utils/formatDate'
+
 export default function MessageBubble({ message, isMine }) {
   const time = message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit'
   }) : '--:--'
+  const fullDateTime = message.createdAt ? formatDateTime(message.createdAt) : ''
 
   const isDeleted = message.deleted || message.cipherText === '[mensagem apagada]'
 
@@ -63,7 +66,7 @@ export default function MessageBubble({ message, isMine }) {
 
   return (
     <div className={`bubble ${isMine ? 'bubble--mine' : 'bubble--theirs'}`}>
-      <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', marginBottom: 4 }}>
+      <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', marginBottom: 4 }} title={fullDateTime}>
         {isMine ? 'user@local:~$' : 'root@sender:~$'} [{time}]
         {message.read && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>✓✓</span>}
       </div>

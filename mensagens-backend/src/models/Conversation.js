@@ -41,6 +41,14 @@ const ConversationSchema = new mongoose.Schema(
       type: String,
       default: undefined,
     },
+    // Última leitura por participante: { "<userId>": <Date UTC> }.
+    // Fonte de verdade das não lidas — unread = mensagens com createdAt > reads[user].
+    // Ausência de entrada = usuário nunca leu (conta todas as mensagens elegíveis).
+    reads: {
+      type: Map,
+      of: Date,
+      default: {},
+    },
   },
   {
     timestamps: true,

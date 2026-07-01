@@ -36,8 +36,14 @@ export const useChatStore = create((set, get) => ({
     set({ loading: true, error: null })
     try {
       const data = await getConversations()
-      // API já extrai o array em chat.api.js
-      set({ conversations: data, loading: false, error: null })
+      // API já extrai o array em chat.api.js.
+      // Servidor é a fonte de verdade das não lidas: reconstrói o mapa a partir
+      // do unreadCount de cada conversa (sobrevive a reload/troca de dispositivo).
+      const unreadCounts = {}
+      for (const conv of data) {
+        if (conv.unreadCount > 0) unreadCounts[conv._id] = conv.unreadCount
+      }
+      set({ conversations: data, unreadCounts, loading: false, error: null })
     } catch (error) {
       console.error("Erro ao buscar conversas:", error)
       // Não zera a lista já carregada numa falha transitória (rede/cold-open):

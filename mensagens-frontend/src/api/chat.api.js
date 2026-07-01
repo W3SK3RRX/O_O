@@ -90,6 +90,11 @@ export async function removeParticipant(conversationId, userId) {
   return res.data
 }
 
+export async function markConversationRead(conversationId) {
+  const res = await api.patch(`/conversations/${conversationId}/read`)
+  return res.data
+}
+
 export async function saveConversationKeys(conversationId, encryptedKeys, keyVersion) {
   const res = await api.put(
     `/conversations/${conversationId}/keys`,

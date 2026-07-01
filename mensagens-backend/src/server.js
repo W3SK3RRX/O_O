@@ -103,6 +103,9 @@ io.on("connection", (socket) => {
       });
 
       conversation.lastMessage = message._id;
+      // Quem envia já leu o histórico anterior — evita a própria mensagem
+      // (e as anteriores) contarem como não lidas para o remetente.
+      conversation.reads.set(socket.user._id.toString(), new Date());
       await conversation.save();
 
       /**
@@ -178,6 +181,10 @@ io.on("connection", (socket) => {
       participants: socket.user._id,
     });
     if (!conversation) return;
+
+    // Persiste a última leitura (fonte de verdade das não lidas, sobrevive a reload).
+    conversation.reads.set(socket.user._id.toString(), new Date());
+    await conversation.save();
 
     await Message.updateMany(
       { conversationId, read: false, sender: { $ne: socket.user._id } },

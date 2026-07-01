@@ -1,5 +1,6 @@
 import Conversation from '../models/Conversation.js';
 import User from '../models/User.js';
+import Message from '../models/Message.js';
 import log from '../config/logger.js';
 
 export const createConversation = async (req, res) => {
@@ -211,9 +212,22 @@ export const getUserConversations = async (req, res) => {
       .populate('lastMessage')
       .sort({ updatedAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const total = await Conversation.countDocuments({ participants: userId });
+
+    // Contagem de não lidas por conversa em UMA agregação (evita N+1).
+    // Para cada conversa da página: mensagens de outros, não deletadas, mais
+    // recentes que a última leitura do usuário (todas, se nunca leu).
+    const userIdStr = userId.toString();
+    const unreadByConversation = await buildUnreadCounts(conversations, userId, userIdStr);
+
+    for (const conv of conversations) {
+      conv.unreadCount = unreadByConversation.get(conv._id.toString()) ?? 0;
+      // reads é estado interno de servidor — não precisa ir ao cliente.
+      delete conv.reads;
+    }
 
     log.info({ userId, page, limit, total }, 'Conversas buscadas');
 
@@ -229,5 +243,55 @@ export const getUserConversations = async (req, res) => {
   } catch (error) {
     log.error({ error }, 'Erro ao buscar conversas');
     res.status(500).json({ message: "Erro ao buscar conversas" });
+  }
+};
+
+// Conta não lidas de várias conversas em uma única agregação (sem N+1).
+// Retorna Map<conversationId(string), count>. `conversations` deve ser lean.
+async function buildUnreadCounts(conversations, userId, userIdStr) {
+  const counts = new Map();
+  if (!conversations.length) return counts;
+
+  const orConditions = conversations.map((conv) => {
+    const cond = { conversationId: conv._id, sender: { $ne: userId } };
+    const since = conv.reads?.[userIdStr];
+    if (since) cond.createdAt = { $gt: since };
+    return cond;
+  });
+
+  const grouped = await Message.aggregate([
+    { $match: { deleted: { $ne: true }, $or: orConditions } },
+    { $group: { _id: '$conversationId', count: { $sum: 1 } } },
+  ]);
+
+  for (const row of grouped) {
+    counts.set(row._id.toString(), row.count);
+  }
+
+  return counts;
+}
+
+export const markConversationRead = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversa não encontrada' });
+    }
+
+    conversation.reads.set(userId.toString(), new Date());
+    await conversation.save();
+
+    log.info({ conversationId, userId }, 'Conversa marcada como lida');
+    return res.status(200).json({ unreadCount: 0 });
+  } catch (error) {
+    log.error({ error }, 'Erro ao marcar conversa como lida');
+    return res.status(500).json({ message: 'Erro ao marcar conversa como lida' });
   }
 };

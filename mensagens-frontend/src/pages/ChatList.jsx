@@ -26,7 +26,7 @@ export default function ChatList() {
   const disconnect = useSocketStore(state => state.disconnect)
   const socket = useSocketStore(state => state.socket)
 
-  const { conversations, fetchConversations, loading, error, unreadCounts, clearUnread } = useChatStore()
+  const { conversations, fetchConversations, loading, error, unreadCounts, clearUnread, previews } = useChatStore()
 
   useEffect(() => {
     connect()
@@ -121,7 +121,7 @@ export default function ChatList() {
             const name = getConversationName(conv, user?._id)
             const unread = unreadCounts[conv._id] ?? 0
             const time = formatTime(conv.lastMessage?.createdAt)
-            const lastMsg = '[mensagem criptografada]'
+            const lastMsg = previews[conv._id] || '[mensagem criptografada]'
 
             return (
               <div

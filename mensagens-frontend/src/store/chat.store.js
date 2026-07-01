@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import { getConversations, getMessages } from '../api/chat.api'
+import { getConversations, getMessagesPage } from '../api/chat.api'
 import { encryptMessage } from '../crypto/message'
 import { loadConversationKey } from '../crypto/conv-storage'
 import { importConversationKey } from '../crypto/conversation'
+import { savePreview, loadAllPreviews } from '../crypto/preview-storage'
 
 export const useChatStore = create((set, get) => ({
   conversations: [],
@@ -12,6 +13,10 @@ export const useChatStore = create((set, get) => ({
   error: null,
   pagination: null,
   unreadCounts: {},
+  previews: {},          // { conversationId: textoDecifrado } — cache local do preview
+  lastReadAts: {},       // { conversationId: ISO } — para ancorar "novas mensagens"
+  messagesPagination: null,
+  loadingOlder: false,
 
   setActiveConversation: (conversation) => {
     set({ activeConversation: conversation })
@@ -32,18 +37,35 @@ export const useChatStore = create((set, get) => ({
       return { unreadCounts: next };
     }),
 
+  // Preview local (texto decifrado da última mensagem) — persistido no IndexedDB.
+  setPreview: (conversationId, text) => {
+    set((state) => ({ previews: { ...state.previews, [conversationId]: text } }))
+    savePreview(conversationId, text).catch(() => {})
+  },
+
+  loadPreviews: async () => {
+    try {
+      const previews = await loadAllPreviews()
+      set((state) => ({ previews: { ...previews, ...state.previews } }))
+    } catch {
+      // cache de preview é best-effort
+    }
+  },
+
   fetchConversations: async () => {
     set({ loading: true, error: null })
     try {
       const data = await getConversations()
-      // API já extrai o array em chat.api.js.
       // Servidor é a fonte de verdade das não lidas: reconstrói o mapa a partir
       // do unreadCount de cada conversa (sobrevive a reload/troca de dispositivo).
       const unreadCounts = {}
+      const lastReadAts = {}
       for (const conv of data) {
         if (conv.unreadCount > 0) unreadCounts[conv._id] = conv.unreadCount
+        if (conv.myLastReadAt) lastReadAts[conv._id] = conv.myLastReadAt
       }
-      set({ conversations: data, unreadCounts, loading: false, error: null })
+      set({ conversations: data, unreadCounts, lastReadAts, loading: false, error: null })
+      get().loadPreviews()
     } catch (error) {
       console.error("Erro ao buscar conversas:", error)
       // Não zera a lista já carregada numa falha transitória (rede/cold-open):
@@ -55,37 +77,45 @@ export const useChatStore = create((set, get) => ({
   fetchMessages: async conversationId => {
     set({ loading: true })
     try {
-      const data = await getMessages(conversationId)
-      // API já extrai o array em chat.api.js
-      set({ messages: data, loading: false })
+      const { messages, pagination } = await getMessagesPage(conversationId, 1)
+      set({ messages, messagesPagination: pagination, loading: false })
     } catch (error) {
       console.error("Erro ao buscar mensagens:", error)
-      set({ messages: [], loading: false })
+      set({ messages: [], messagesPagination: null, loading: false })
+    }
+  },
+
+  // Carrega a próxima página (mais antiga) e prepend na lista. Retorna quantas
+  // mensagens foram adicionadas (para preservar a posição de scroll).
+  loadOlderMessages: async conversationId => {
+    const { messagesPagination, loadingOlder, messages } = get()
+    if (loadingOlder || !messagesPagination) return 0
+    if (messagesPagination.page >= messagesPagination.pages) return 0
+
+    set({ loadingOlder: true })
+    try {
+      const nextPage = messagesPagination.page + 1
+      const { messages: older, pagination } = await getMessagesPage(conversationId, nextPage, messagesPagination.limit)
+      const existingIds = new Set(messages.map(m => m._id))
+      const deduped = older.filter(m => !existingIds.has(m._id))
+      set({ messages: [...deduped, ...messages], messagesPagination: pagination, loadingOlder: false })
+      return deduped.length
+    } catch (error) {
+      console.error("Erro ao carregar mensagens anteriores:", error)
+      set({ loadingOlder: false })
+      return 0
     }
   },
 
   sendMessage: async (socket, text) => {
     const { activeConversation } = get()
-    
     if (!activeConversation) return
-
     try {
       const sharedKeyBase64 = await loadConversationKey(activeConversation._id)
-      
-      if (!sharedKeyBase64) {
-        console.error("❌ Erro: Chave da conversa não encontrada.")
-        return
-      }
-
+      if (!sharedKeyBase64) return
       const sharedKey = await importConversationKey(sharedKeyBase64)
       const { cipherText, iv } = await encryptMessage(sharedKey, text)
-
-      socket.emit('sendMessage', {
-        conversationId: activeConversation._id,
-        cipherText,
-        iv
-      })
-      
+      socket.emit('sendMessage', { conversationId: activeConversation._id, cipherText, iv })
     } catch (error) {
       console.error("Erro ao criptografar/enviar mensagem:", error)
     }
@@ -95,16 +125,53 @@ export const useChatStore = create((set, get) => ({
     set(state => {
       const exists = state.messages.some(m => m._id === message._id)
       if (exists) return state
-
-      return {
-        messages: [...state.messages, message]
-      }
+      return { messages: [...state.messages, message] }
     }),
+
+  // Mensagem otimista (status 'pending') — exibida imediatamente ao enviar.
+  addOptimistic: message =>
+    set(state => ({ messages: [...state.messages, { ...message, status: 'pending' }] })),
+
+  // Reconcilia o eco do servidor com a mensagem otimista (casando por clientId).
+  reconcileMessage: message =>
+    set(state => {
+      if (message.clientId) {
+        const idx = state.messages.findIndex(m => m.clientId === message.clientId)
+        if (idx >= 0) {
+          const next = [...state.messages]
+          next[idx] = { ...next[idx], ...message, status: 'sent' }
+          return { messages: next }
+        }
+      }
+      if (state.messages.some(m => m._id === message._id)) return state
+      return { messages: [...state.messages, { ...message, status: 'sent' }] }
+    }),
+
+  markMessageFailed: clientId =>
+    set(state => ({
+      messages: state.messages.map(m =>
+        m.clientId === clientId && m.status === 'pending' ? { ...m, status: 'failed' } : m
+      )
+    })),
+
+  markMessagePending: clientId =>
+    set(state => ({
+      messages: state.messages.map(m =>
+        m.clientId === clientId ? { ...m, status: 'pending' } : m
+      )
+    })),
 
   markAsRead: messageId =>
     set(state => ({
       messages: state.messages.map(m =>
         m._id === messageId ? { ...m, read: true } : m
+      )
+    })),
+
+  updateReactions: (messageId, reactions) =>
+    set(state => ({
+      messages: state.messages.map(m =>
+        m._id === messageId ? { ...m, reactions } : m
       )
     })),
 

@@ -60,6 +60,28 @@ export async function getMessages(conversationId, page = 1, limit = 100) {
   return data
 }
 
+// Página de mensagens com metadados de paginação (para "carregar anteriores").
+// page 1 = mais recentes; páginas maiores = mais antigas. Retorna as mensagens
+// ordenadas em ordem cronológica (ascendente) + o objeto pagination do servidor.
+export async function getMessagesPage(conversationId, page = 1, limit = 30) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 1, 1), 100)
+  const safePage = Math.max(Number(page) || 1, 1)
+  const res = await api.get(`/messages/${conversationId}?page=${safePage}&limit=${safeLimit}`)
+
+  let messages = res.data.messages ?? res.data ?? []
+  if (!Array.isArray(messages)) messages = []
+  messages = [...messages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+
+  const pagination = res.data.pagination ?? {
+    page: safePage,
+    limit: safeLimit,
+    total: messages.length,
+    pages: 1,
+  }
+
+  return { messages, pagination }
+}
+
 export async function createConversation(participantId) {
   const res = await api.post('/conversations', {
     receiverId: participantId,

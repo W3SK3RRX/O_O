@@ -62,6 +62,11 @@ export const getMessagesByConversation = async (req, res) => {
 
     const messages = await Message.find({ conversationId })
       .populate('sender', 'name email avatar')
+      .populate({
+        path: 'replyTo',
+        select: 'cipherText iv deleted sender',
+        populate: { path: 'sender', select: 'name' },
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);

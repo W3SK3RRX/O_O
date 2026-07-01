@@ -26,6 +26,14 @@ export const sendMessageSchema = z.object({
   iv: z.string().min(1, 'iv é obrigatório'),
 });
 
+// Schema para upload de anexo criptografado
+export const uploadAttachmentSchema = z.object({
+  conversationId: objectId,
+  cipherBase64: z.string().min(1, 'cipherBase64 é obrigatório'),
+  name: z.string().max(255).optional(),
+  mime: z.string().max(100).optional(),
+});
+
 // Schema para salvar chaves da conversa
 export const saveConversationKeysSchema = z.object({
   encryptedKeys: z.record(z.string(), z.string()),

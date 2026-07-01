@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import conversationRoutes from './routes/conversation.routes.js';
 import messageRoutes from './routes/message.routes.js';
+import attachmentRoutes from './routes/attachment.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import pushRoutes from './routes/push.routes.js';
 
@@ -51,7 +52,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Parse de body
+// Parse de body.
+// Anexos (ciphertext em base64) precisam de um limite maior; este parser casa
+// só com /api/attachments e roda ANTES do global de 1mb. express.json marca
+// req._body, então o parser global abaixo é ignorado para essa rota.
+app.use('/api/attachments', express.json({ limit: '12mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
@@ -66,6 +71,7 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/messages', messageLimiter, messageRoutes);
+app.use('/api/attachments', attachmentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/push', pushRoutes);
 

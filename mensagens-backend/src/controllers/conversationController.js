@@ -225,8 +225,10 @@ export const getUserConversations = async (req, res) => {
 
     for (const conv of conversations) {
       conv.unreadCount = unreadByConversation.get(conv._id.toString()) ?? 0;
-      // reads é estado interno de servidor — não precisa ir ao cliente.
-      delete conv.reads;
+      // Última leitura do próprio usuário — usada para ancorar "novas mensagens".
+      conv.myLastReadAt = conv.reads?.[userIdStr] ?? null;
+      // reads (lastReadAt por participante) segue no payload: alimenta os recibos
+      // de leitura por membro em grupos. São só timestamps de leitura.
     }
 
     log.info({ userId, page, limit, total }, 'Conversas buscadas');

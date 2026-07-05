@@ -55,8 +55,9 @@ const ConversationSchema = new mongoose.Schema(
   }
 );
 
-// Índice de performance para buscar conversas de um usuário
-ConversationSchema.index({ participants: 1 });
+// Índice composto: cobre a query "conversas de um usuário" ordenada por
+// updatedAt desc (a listagem), evitando sort em memória.
+ConversationSchema.index({ participants: 1, updatedAt: -1 });
 
 // Impede conversas 1-a-1 duplicadas entre os mesmos dois usuários (defesa contra race).
 // Parcial: só aplica a documentos que possuem participantsKey (conversas privadas).

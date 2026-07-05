@@ -5,14 +5,25 @@ export default function ToastNotification({ toast }) {
   const navigate = useNavigate();
   const removeToast = useNotificationStore((s) => s.removeToast);
 
-  const handleClick = () => {
+  const isError = toast.type === 'error';
+
+  const handleActivate = () => {
     removeToast(toast.id);
     if (toast.conversationId) navigate(`/chat/${toast.conversationId}`);
   };
 
   return (
-    <div style={styles.toast} onClick={handleClick}>
-      <div style={styles.tag}>[NOVA MENSAGEM]</div>
+    <div
+      style={{ ...styles.toast, ...(isError ? styles.toastError : null) }}
+      onClick={handleActivate}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleActivate(); }
+      }}
+      role={toast.conversationId ? 'button' : 'status'}
+      tabIndex={toast.conversationId ? 0 : -1}
+      aria-live={isError ? 'assertive' : 'polite'}
+    >
+      <div style={styles.tag}>{isError ? '[ERRO]' : '[NOVA MENSAGEM]'}</div>
       <div style={styles.name}>{toast.title}</div>
       {toast.body && <div style={styles.preview}>{toast.body}</div>}
       <button
@@ -38,6 +49,10 @@ const styles = {
     cursor: 'pointer',
     overflow: 'hidden',
     pointerEvents: 'auto',
+  },
+  toastError: {
+    border: '1px solid var(--danger, #ff5555)',
+    boxShadow: '0 0 16px rgba(255,85,85,0.3)',
   },
   tag: { fontSize: 'var(--fs-2xs)', color: 'var(--text-muted)', marginBottom: 3 },
   name: { fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--accent)', marginBottom: 3 },

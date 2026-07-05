@@ -5,12 +5,14 @@ import { useAuthStore } from '../store/auth.store'
 import { reencryptKeyBackup } from '../crypto/bootstrap'
 
 export default function ChangePassword() {
+  const [currentPassword, setCurrentPassword] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
 
   const logout = useAuthStore(state => state.logout)
+  const setToken = useAuthStore(state => state.setToken)
   const navigate = useNavigate()
 
   const handleSubmit = async e => {
@@ -24,7 +26,12 @@ export default function ChangePassword() {
 
     try {
       setLoading(true)
-      await changePassword(password)
+      setError(null)
+
+      // A troca revoga as sessões antigas e devolve um novo access token —
+      // aplicamos ele antes de re-cifrar o backup (que usa o token válido).
+      const { token } = await changePassword(currentPassword, password)
+      if (token) setToken(token)
 
       // Re-cifra o backup da chave privada com a nova senha (antes do logout),
       // para que continue recuperável em qualquer dispositivo.
@@ -36,8 +43,8 @@ export default function ChangePassword() {
 
       logout()
       navigate('/login', { replace: true })
-    } catch {
-      setError('Erro ao alterar senha')
+    } catch (err) {
+      setError(err?.response?.status === 401 ? 'Senha atual incorreta' : 'Erro ao alterar senha')
     } finally {
       setLoading(false)
     }
@@ -47,10 +54,21 @@ export default function ChangePassword() {
     <div className="screen screen--center screen--form">
       <form onSubmit={handleSubmit} className="shell auth-form">
         <div className="auth-form__tag">[CHANGE_PASSWORD]</div>
-        <h2 className="auth-form__title">Trocar Senha</h2>
+        <h1 className="auth-form__title">Trocar Senha</h1>
         <p className="auth-form__subtitle">root@secure:~$ passwd --force</p>
 
-        {error && <p className="error-text">{error}</p>}
+        {error && <p className="error-text" role="alert">{error}</p>}
+
+        <input
+          type="password"
+          placeholder="Senha atual"
+          value={currentPassword}
+          onChange={e => setCurrentPassword(e.target.value)}
+          required
+          autoComplete="current-password"
+          className="field"
+          aria-label="Senha atual"
+        />
 
         <input
           type="password"
@@ -60,6 +78,7 @@ export default function ChangePassword() {
           required
           autoComplete="new-password"
           className="field"
+          aria-label="Nova senha"
         />
 
         <input
@@ -70,6 +89,7 @@ export default function ChangePassword() {
           required
           autoComplete="new-password"
           className="field"
+          aria-label="Confirmar nova senha"
         />
 
         <button type="submit" disabled={loading} className="btn btn--primary btn--block">

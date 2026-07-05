@@ -17,7 +17,8 @@ export const registerRequest = async (name, email, password) => {
   return data
 }
 
-export const refreshTokenRequest = async (refreshToken) => {
-  const { data } = await api.post('/auth/refresh', { refreshToken })
+// O refresh token vai no cookie httpOnly (withCredentials); sem body.
+export const refreshTokenRequest = async () => {
+  const { data } = await api.post('/auth/refresh')
   return data
 }

@@ -1,14 +1,24 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/auth.store'
-
-import Login from '../pages/Login'
-import ChangePassword from '../pages/ChangePassword'
-import ChatList from '../pages/ChatList'
-import Chat from '../pages/Chat'
-import AdminDashboard from '../pages/admin/AdminDashboard'
-import NewChat from '../pages/NewChat'
 import ProtectedRoute from './ProtectedRoute'
+
+// Code splitting: cada página vira um chunk carregado sob demanda, reduzindo
+// o JS inicial (login não baixa admin/chat/cripto pesada).
+const Login = lazy(() => import('../pages/Login'))
+const ChangePassword = lazy(() => import('../pages/ChangePassword'))
+const ChatList = lazy(() => import('../pages/ChatList'))
+const Chat = lazy(() => import('../pages/Chat'))
+const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'))
+const NewChat = lazy(() => import('../pages/NewChat'))
+
+function RouteFallback() {
+  return (
+    <div className="screen screen--center" role="status" aria-live="polite">
+      <p>Carregando…</p>
+    </div>
+  )
+}
 
 // Escuta mensagens do Service Worker (clique em notificação push) para navegar
 // até a conversa correspondente sem recarregar a página.
@@ -42,6 +52,7 @@ export default function AppRoutes() {
   return (
     <BrowserRouter>
       <PushNavigationListener />
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/change-password" element={<ChangePassword />} />
@@ -84,6 +95,7 @@ export default function AppRoutes() {
           }
         />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

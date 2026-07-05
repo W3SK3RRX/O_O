@@ -29,9 +29,27 @@ export const keyPairSchema = z.object({
   privateKeyBackup: z.string().min(1, 'Backup da chave privada é obrigatório'),
 });
 
-// Schema para alteração de senha
+// Schema para alteração de senha (exige a senha atual)
 export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Senha atual é obrigatória'),
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
+});
+
+// Validação de :id (ObjectId) em rotas admin
+export const idParamSchema = z.object({
+  id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'ID inválido'),
+});
+
+// Atualização de usuário pelo admin
+export const adminUpdateUserSchema = z.object({
+  name: z.string().min(2).optional(),
+  role: z.enum(['user', 'admin']).optional(),
+  active: z.boolean().optional(),
+});
+
+// Toggle de status
+export const toggleStatusSchema = z.object({
+  active: z.boolean(),
 });
 
 // Schema para busca de usuários

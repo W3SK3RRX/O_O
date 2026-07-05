@@ -7,7 +7,7 @@ import MessageBubble from '../components/MessageBubble'
 import DaySeparator from '../components/DaySeparator'
 import { isSameDay, formatDayLabel } from '../utils/formatDate'
 
-import { getConversations, markConversationRead } from '../api/chat.api'
+import { getConversation, markConversationRead } from '../api/chat.api'
 import { uploadAttachment } from '../api/attachment.api'
 import { loadConversationKey, saveConversationKey } from '../crypto/conv-storage'
 import { importConversationKey } from '../crypto/conversation'
@@ -17,20 +17,12 @@ import { decryptWithPrivateKey } from '../crypto/envelope'
 import { importPrivateKey } from '../crypto/keys'
 import { getPrivateKey } from '../crypto/storage'
 import { publicKeyFingerprint } from '../crypto/fingerprint'
+import { getConversationName } from '../utils/conversation'
+import { useNotificationStore } from '../store/notification.store'
 
-const getConversationTitle = (conversation, currentUserId) => {
-  if (!conversation) return 'CHAT_SESSION'
-  const candidates = conversation.participants || conversation.users || conversation.members || []
-  const names = candidates
-    .filter(p => {
-      const id = p?._id || p?.id || p
-      return id && id !== currentUserId
-    })
-    .map(p => p?.name || p?.username)
-    .filter(Boolean)
-  if (names.length > 0) return names.join(' • ')
-  return `Conversa #${conversation._id?.slice(-4) || ''}`
-}
+// Limite de tamanho de arquivo em claro (o ciphertext cifrado fica um pouco maior;
+// o backend recusa acima de ~10MB de ciphertext).
+const MAX_FILE_BYTES = 8 * 1024 * 1024
 
 export default function Chat() {
   const { conversationId } = useParams()
@@ -50,6 +42,7 @@ export default function Chat() {
   const user = useAuthStore(state => state.user)
   const socket = useSocketStore(state => state.socket)
   const connectSocket = useSocketStore(state => state.connect)
+  const addError = useNotificationStore(state => state.addError)
 
   const {
     messages,
@@ -77,6 +70,11 @@ export default function Chat() {
   const pendingTimers = useRef(new Map())
   const anchorRef = useRef(null)
   const lastIdRef = useRef(null)
+  // Cache incremental de descriptografia: evita reprocessar o histórico inteiro
+  // a cada nova mensagem/reação/recibo. Zerado ao trocar de conversa (chave).
+  const decryptedIdsRef = useRef(new Set())
+  const replyIdsRef = useRef(new Set())
+  const decryptedKeyRef = useRef(null)
 
   useEffect(() => {
     if (!socket) connectSocket()
@@ -101,14 +99,12 @@ export default function Chat() {
 
     const resolveConversationKey = async () => {
       try {
-        const conversations = await getConversations()
+        // Busca só esta conversa (funciona com qualquer número de conversas).
+        const conversation = await getConversation(conversationId)
         if (cancelled) return
-        if (!Array.isArray(conversations)) throw new Error('Erro ao buscar conversas')
+        if (!conversation?._id) throw new Error('Conversa não encontrada')
 
-        const conversation = conversations.find(c => c._id === conversationId)
-        if (!conversation) throw new Error('Conversa não encontrada')
-
-        setConversationTitle(getConversationTitle(conversation, user?._id))
+        setConversationTitle(getConversationName(conversation, user?._id))
         setConversationMeta({
           participants: conversation.participants || [],
           isGroup: !!conversation.isGroup,
@@ -150,14 +146,14 @@ export default function Chat() {
       } catch (error) {
         if (cancelled) return
         console.error('Erro ao carregar chave da conversa:', error)
-        alert('Não foi possível carregar a chave da conversa. Tente recriar a conversa.')
+        addError('Não foi possível carregar a chave da conversa. Tente recriar a conversa.')
         navigate('/')
       }
     }
 
     resolveConversationKey()
     return () => { cancelled = true }
-  }, [conversationId, navigate, user?._id])
+  }, [conversationId, navigate, user?._id, addError])
 
   useEffect(() => {
     fetchMessages(conversationId)
@@ -254,43 +250,62 @@ export default function Chat() {
     }
   }, [])
 
-  // Descriptografa mensagens carregadas + resolve o texto das citações (reply).
+  // Descriptografa apenas mensagens/citações ainda não processadas (incremental).
   useEffect(() => {
     if (!conversationKey || messages.length === 0) return
     let cancelled = false
 
-    const run = async () => {
-      const entries = await Promise.all(
-        messages.map(async msg => {
-          if (msg.text && !msg.decryptError) return [msg._id, msg.text]
-          if (!msg.cipherText || !msg.iv) return [msg._id, '[mensagem indisponível]']
-          try {
-            return [msg._id, await decryptMessage(conversationKey, msg.cipherText, msg.iv)]
-          } catch {
-            return [msg._id, '[mensagem indisponível]']
-          }
-        })
-      )
-      if (cancelled) return
-      const lookup = Object.fromEntries(entries)
-      setDecryptedMessages(prev => ({ ...prev, ...lookup }))
+    // Troca de conversa (nova chave) → zera o cache incremental.
+    if (decryptedKeyRef.current !== conversationKey) {
+      decryptedKeyRef.current = conversationKey
+      decryptedIdsRef.current = new Set()
+      replyIdsRef.current = new Set()
+    }
 
-      // Texto das mensagens citadas (usa o lookup; senão decifra o replyTo).
-      const replyEntries = await Promise.all(
-        messages
-          .filter(m => m.replyTo && m.replyTo._id)
-          .map(async m => {
-            const rid = m.replyTo._id
-            if (lookup[rid]) return [m._id, lookup[rid]]
+    const seen = decryptedIdsRef.current
+    const seenReplies = replyIdsRef.current
+
+    const toDecrypt = messages.filter(
+      m => !seen.has(m._id) && !(m.text && !m.decryptError) && m.cipherText && m.iv
+    )
+    const toReply = messages.filter(
+      m => m.replyTo && m.replyTo._id && !seenReplies.has(m._id)
+    )
+    if (toDecrypt.length === 0 && toReply.length === 0) return
+
+    const run = async () => {
+      if (toDecrypt.length > 0) {
+        const entries = await Promise.all(
+          toDecrypt.map(async msg => {
+            try {
+              return [msg._id, await decryptMessage(conversationKey, msg.cipherText, msg.iv)]
+            } catch {
+              return [msg._id, '[mensagem indisponível]']
+            }
+          })
+        )
+        if (cancelled) return
+        entries.forEach(([id]) => seen.add(id))
+        setDecryptedMessages(prev => ({ ...prev, ...Object.fromEntries(entries) }))
+      }
+
+      if (toReply.length > 0) {
+        const replyEntries = await Promise.all(
+          toReply.map(async m => {
             if (m.replyTo.cipherText && m.replyTo.iv) {
               try {
                 return [m._id, await decryptMessage(conversationKey, m.replyTo.cipherText, m.replyTo.iv)]
-              } catch { return [m._id, '[mensagem]'] }
+              } catch {
+                return [m._id, '[mensagem]']
+              }
             }
             return [m._id, '[mensagem]']
           })
-      )
-      if (!cancelled) setReplyTexts(Object.fromEntries(replyEntries))
+        )
+        if (cancelled) return
+        replyEntries.forEach(([id]) => seenReplies.add(id))
+        setReplyTexts(prev => ({ ...prev, ...Object.fromEntries(replyEntries) }))
+      }
     }
 
     run()
@@ -360,13 +375,17 @@ export default function Chat() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file || !conversationKey) return
+    if (file.size > MAX_FILE_BYTES) {
+      addError('Arquivo muito grande (máximo 8MB).')
+      return
+    }
     setUploading(true)
     try {
       const enc = await encryptFile(conversationKey, file)
       const up = await uploadAttachment({ conversationId, name: enc.name, mime: enc.mime, cipherBase64: enc.cipherBase64 })
       setPendingAttachments(prev => [...prev, { attachmentId: up.attachmentId, name: enc.name, mime: enc.mime, size: enc.size, iv: enc.iv }])
     } catch (err) {
-      alert(err?.message || 'Falha ao anexar arquivo')
+      addError(err?.response?.data?.error?.message || err?.message || 'Falha ao anexar arquivo')
     } finally {
       setUploading(false)
     }
@@ -527,9 +546,13 @@ export default function Chat() {
           </div>
         )}
 
-        <div className="composer">
+        <form
+          className="composer"
+          onSubmit={(e) => { e.preventDefault(); sendMessage() }}
+        >
           <input ref={fileInputRef} type="file" onChange={handleFileSelect} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} />
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             className="icon-btn"
             aria-label="Anexar arquivo"
@@ -538,18 +561,29 @@ export default function Chat() {
           >
             {uploading ? '…' : '📎'}
           </button>
-          <input
-            placeholder="Digite sua mensagem..."
+          <textarea
+            placeholder="Digite sua mensagem... (Enter envia, Shift+Enter quebra linha)"
             className="field composer__input"
             aria-label="Mensagem"
+            rows={1}
             value={text}
             onChange={e => { handleTyping(); setText(e.target.value) }}
-            onKeyDown={e => e.key === 'Enter' && sendMessage()}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                sendMessage()
+              }
+            }}
           />
-          <button onClick={sendMessage} className="composer__send" aria-label="Enviar mensagem">
+          <button
+            type="submit"
+            className="composer__send"
+            aria-label="Enviar mensagem"
+            disabled={(!text.trim() && pendingAttachments.length === 0) || !conversationKey}
+          >
             {'>'}
           </button>
-        </div>
+        </form>
       </div>
     </div>
   )

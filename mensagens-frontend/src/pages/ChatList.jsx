@@ -3,15 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useChatStore } from '../store/chat.store'
 import { useSocketStore } from '../store/socket.store'
 import { useAuthStore } from '../store/auth.store'
-
-const getConversationName = (conv, currentUserId) => {
-  if (!conv?.participants?.length) return `#${conv._id?.slice(-4)}`
-  const others = conv.participants.filter(
-    (p) => (p?._id ?? p)?.toString() !== currentUserId?.toString()
-  )
-  if (!others.length) return 'Você mesmo'
-  return others.map((p) => p?.name ?? '?').join(' • ')
-}
+import { getConversationName } from '../utils/conversation'
 
 const formatTime = (dateStr) => {
   if (!dateStr) return '--'
@@ -123,13 +115,20 @@ export default function ChatList() {
             const time = formatTime(conv.lastMessage?.createdAt)
             const lastMsg = previews[conv._id] || '[mensagem criptografada]'
 
+            const open = () => {
+              clearUnread(conv._id)
+              navigate(`/chat/${conv._id}`)
+            }
             return (
               <div
                 key={conv._id}
                 className={`list-row${unread > 0 ? ' list-row--unread' : ''}`}
-                onClick={() => {
-                  clearUnread(conv._id)
-                  navigate(`/chat/${conv._id}`)
+                role="button"
+                tabIndex={0}
+                aria-label={`Abrir conversa com ${name}${unread > 0 ? `, ${unread} não lidas` : ''}`}
+                onClick={open}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() }
                 }}
               >
                 <div style={{ gridColumn: 1, gridRow: 1, fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>

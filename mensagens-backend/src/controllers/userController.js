@@ -1,143 +1,106 @@
 import User from '../models/User.js';
 import log from '../config/logger.js';
 import { encryptKeyBackup, decryptKeyBackup } from '../utils/keyBackupCipher.js';
+import { NotFoundError, UnauthorizedError, ValidationError } from '../middlewares/errorClasses.js';
+import { generateAccessToken, generateRefreshToken, setRefreshCookie } from '../utils/tokens.js';
 
 export const searchUsers = async (req, res) => {
-  try {
-    // Usa dados validados do middleware ou query original
-    const search = req.validatedQuery.search;
-    const currentUserId = req.user._id;
+  const search = req.validatedQuery.search;
+  const currentUserId = req.user._id;
 
-    log.info({ search, userId: currentUserId }, 'Busca de usuários');
+  // Escapa metacaracteres e ancora no início (prefixo): usa índice e evita ReDoS.
+  const safeSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const prefix = new RegExp(`^${safeSearch}`, 'i');
 
-    // Escapa metacaracteres de regex para evitar ReDoS / matches indesejados
-    const safeSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const users = await User.find({
+    $or: [{ name: prefix }, { email: prefix }],
+    _id: { $ne: currentUserId },
+  })
+    .select('name email avatar publicKey')
+    .limit(20)
+    .lean();
 
-    const users = await User.find({
-      $or: [
-        { name: { $regex: safeSearch, $options: 'i' } },
-        { email: { $regex: safeSearch, $options: 'i' } },
-      ],
-      _id: { $ne: currentUserId },
-    }).select('name email avatar publicKey');
-
-    res.json(users);
-  } catch (error) {
-    log.error({ error }, 'Erro ao buscar usuários');
-    res.status(500).json({ message: 'Erro ao buscar usuários' });
-  }
+  res.json(users);
 };
 
 export const getProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id)
-      .select('name email avatar publicKey role isAdmin privateKeyBackup');
+  const user = await User.findById(req.user._id)
+    .select('name email avatar publicKey role isAdmin privateKeyBackup')
+    .lean();
 
-    if (!user) {
-      return res.status(404).json({ message: 'Usuário não encontrado' });
-    }
+  if (!user) throw new NotFoundError('Usuário');
 
-    return res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      avatar: user.avatar,
-      publicKey: user.publicKey,
-      hasPrivateKeyBackup: !!user.privateKeyBackup,
-      role: user.role,
-      isAdmin: user.isAdmin,
-    });
-  } catch (error) {
-    log.error({ error }, 'Erro ao buscar perfil');
-    res.status(500).json({ message: 'Erro ao buscar perfil' });
-  }
+  res.json({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    avatar: user.avatar,
+    publicKey: user.publicKey,
+    hasPrivateKeyBackup: !!user.privateKeyBackup,
+    role: user.role,
+    isAdmin: user.isAdmin,
+  });
 };
 
 export const updatePublicKey = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { publicKey } = req.validatedBody || req.body;
+  const userId = req.user._id;
+  const { publicKey } = req.validatedBody || req.body;
 
-    if (!publicKey) {
-      return res.status(400).json({ message: "Chave pública é obrigatória" });
-    }
+  if (!publicKey) throw new ValidationError('Chave pública é obrigatória');
 
-    await User.findByIdAndUpdate(userId, { publicKey });
-    
-    log.info({ userId }, 'Chave pública atualizada');
-    return res.status(200).json({ message: "Chave pública atualizada com sucesso" });
-  } catch (error) {
-    log.error({ error }, 'Erro ao atualizar chave pública');
-    return res.status(500).json({ message: "Erro ao atualizar chave pública" });
-  }
+  await User.findByIdAndUpdate(userId, { publicKey });
+  log.info({ userId }, 'Chave pública atualizada');
+  res.status(200).json({ message: 'Chave pública atualizada com sucesso' });
 };
 
 export const updateKeyPair = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const {
-      publicKey,
-      privateKeyBackup,
-    } = req.validatedBody || req.body;
+  const userId = req.user._id;
+  const { publicKey, privateKeyBackup } = req.validatedBody || req.body;
 
-    const encryptedPrivateKeyBackup = encryptKeyBackup(privateKeyBackup);
+  const encryptedPrivateKeyBackup = encryptKeyBackup(privateKeyBackup);
 
-    await User.findByIdAndUpdate(userId, {
-      publicKey,
-      privateKeyBackup: encryptedPrivateKeyBackup,
-    });
+  await User.findByIdAndUpdate(userId, {
+    publicKey,
+    privateKeyBackup: encryptedPrivateKeyBackup,
+  });
 
-    log.info({ userId }, 'Par de chaves atualizado');
-    return res.status(200).json({ message: "Par de chaves atualizado com sucesso" });
-  } catch (error) {
-    log.error({ error }, 'Erro ao atualizar par de chaves');
-    return res.status(500).json({ message: "Erro ao atualizar par de chaves" });
-  }
+  log.info({ userId }, 'Par de chaves atualizado');
+  res.status(200).json({ message: 'Par de chaves atualizado com sucesso' });
 };
 
 export const changePassword = async (req, res) => {
-  try {
-    const password = req.validatedBody?.password || req.body.password;
-    const userId = req.user._id;
+  const { currentPassword, password } = req.validatedBody || req.body;
+  const userId = req.user._id;
 
-    if (!password || password.length < 6) {
-      return res.status(400).json({ message: "A senha deve ter pelo menos 6 caracteres" });
-    }
+  const user = await User.findById(userId);
+  if (!user) throw new NotFoundError('Usuário');
 
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "Usuário não encontrado" });
-    }
-
-    user.password = password;
-    await user.save();
-
-    log.info({ userId }, 'Senha alterada com sucesso');
-    res.status(200).json({ message: "Senha alterada com sucesso" });
-  } catch (error) {
-    log.error({ error }, 'Erro ao alterar senha');
-    res.status(500).json({ message: "Erro ao alterar senha" });
+  // Exige a senha atual: impede tomada de conta com um token/sessão vazado.
+  if (!currentPassword || !(await user.matchPassword(currentPassword))) {
+    throw new UnauthorizedError('Senha atual incorreta');
   }
+
+  user.password = password;
+  // Revoga todas as sessões antigas (outros dispositivos) ao trocar a senha.
+  user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+  await user.save();
+
+  // Reemite tokens para o dispositivo atual continuar logado.
+  const token = generateAccessToken(user);
+  setRefreshCookie(res, generateRefreshToken(user));
+
+  log.info({ userId }, 'Senha alterada com sucesso');
+  res.status(200).json({ message: 'Senha alterada com sucesso', token });
 };
 
 export const getPrivateKeyBackup = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const user = await User.findById(userId).select('privateKeyBackup publicKey');
+  const userId = req.user._id;
+  const user = await User.findById(userId).select('privateKeyBackup publicKey').lean();
 
-    if (!user || !user.privateKeyBackup) {
-      return res.status(404).json({ message: 'Backup da chave privada não encontrado' });
-    }
-
-    const privateKeyBackup = decryptKeyBackup(user.privateKeyBackup);
-
-    return res.status(200).json({
-      privateKeyBackup,
-      publicKey: user.publicKey,
-    });
-  } catch (error) {
-    log.error({ error }, 'Erro ao buscar backup da chave privada');
-    return res.status(500).json({ message: 'Erro ao buscar backup da chave privada' });
+  if (!user || !user.privateKeyBackup) {
+    throw new NotFoundError('Backup da chave privada');
   }
+
+  const privateKeyBackup = decryptKeyBackup(user.privateKeyBackup);
+  res.status(200).json({ privateKeyBackup, publicKey: user.publicKey });
 };

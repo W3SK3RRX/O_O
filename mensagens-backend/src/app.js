@@ -1,10 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import mongoose from 'mongoose';
 import { randomUUID } from 'crypto';
 import log from './config/logger.js';
-import { globalLimiter, authLimiter, messageLimiter } from './middlewares/rateLimiter.js';
+import { globalLimiter, messageLimiter } from './middlewares/rateLimiter.js';
 import errorHandler from './middlewares/errorHandler.js';
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
@@ -26,11 +28,15 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
+      imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'", 'ws:', 'wss:'],
     },
   },
   hsts: { maxAge: 31536000, includeSubDomains: true },
 }));
+
+// Compressão de respostas (gzip). Ganho grande em payloads base64 (ciphertext).
+app.use(compression());
 
 // CORS com origens explícitas via env
 const corsOptions = {
@@ -42,15 +48,16 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Rate limiting global (antes de processar o body)
-app.use(globalLimiter);
-
-// X-Request-ID para rastreabilidade
+// X-Request-ID para rastreabilidade — antes dos limiters, para que respostas
+// 429 também carreguem o header de correlação.
 app.use((req, res, next) => {
   req.requestId = req.headers['x-request-id'] || randomUUID();
   res.set('X-Request-ID', req.requestId);
   next();
 });
+
+// Rate limiting global (antes de processar o body)
+app.use(globalLimiter);
 
 // Parse de body.
 // Anexos (ciphertext em base64) precisam de um limite maior; este parser casa
@@ -61,13 +68,14 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 
-// Health check
+// Health check — reflete o estado real da conexão com o Mongo (readyState 1 = connected).
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK' });
+  const dbUp = mongoose.connection.readyState === 1;
+  res.status(dbUp ? 200 : 503).json({ status: dbUp ? 'OK' : 'DEGRADED', db: dbUp });
 });
 
-// Rotas
-app.use('/api/auth', authLimiter, authRoutes);
+// Rotas (limiters de auth aplicados por rota dentro de authRoutes)
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/messages', messageLimiter, messageRoutes);

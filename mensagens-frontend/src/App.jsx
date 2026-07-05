@@ -3,10 +3,12 @@ import AppRoutes from './routes/AppRoutes';
 import ToastContainer from './components/ToastContainer';
 import InstallPrompt from './components/InstallPrompt';
 import { startTokenAutoRefresh } from './utils/tokenAutoRefresh';
+import { useAuthStore } from './store/auth.store';
 
 export default function App() {
-  // Renovação proativa do token: mantém a sessão viva antes de expirar.
   useEffect(() => {
+    // Restaura a sessão via cookie httpOnly (reload) e liga a renovação proativa.
+    useAuthStore.getState().hydrate();
     startTokenAutoRefresh();
   }, []);
 

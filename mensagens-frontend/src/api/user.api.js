@@ -7,9 +7,11 @@ export const searchUsers = async (query) => {
   return data;
 };
 
-// Mantido conforme sua solicitação
-export const changePassword = (password) => {
-  return api.post('/users/change-password', { password });
+// Troca de senha: exige a senha atual. Retorna { token } (novo access token,
+// pois a troca revoga as sessões antigas no servidor).
+export const changePassword = async (currentPassword, password) => {
+  const { data } = await api.post('/users/change-password', { currentPassword, password });
+  return data;
 };
 
 // Função essencial para o E2EE (Criptografia)

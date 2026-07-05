@@ -50,7 +50,9 @@ export default function AttachmentView({ attachment, conversationKey }) {
   }, [attachment?.attachmentId, attachment?.iv, attachment?.mime, conversationKey])
 
   const name = attachment?.name || 'anexo'
-  const isImage = (attachment?.mime || '').startsWith('image/')
+  const mime = attachment?.mime || ''
+  // SVG pode conter script; nunca renderiza inline — trata como download.
+  const isImage = mime.startsWith('image/') && mime !== 'image/svg+xml'
 
   if (error) {
     return <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', marginTop: 6 }}>[anexo indisponível]</div>
@@ -66,6 +68,8 @@ export default function AttachmentView({ attachment, conversationKey }) {
         <img
           src={url}
           alt={name}
+          loading="lazy"
+          decoding="async"
           style={{ maxWidth: '100%', maxHeight: 320, borderRadius: 4, border: '1px solid var(--border)' }}
         />
       </a>

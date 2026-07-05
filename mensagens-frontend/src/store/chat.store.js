@@ -98,7 +98,14 @@ export const useChatStore = create((set, get) => ({
       const { messages: older, pagination } = await getMessagesPage(conversationId, nextPage, messagesPagination.limit)
       const existingIds = new Set(messages.map(m => m._id))
       const deduped = older.filter(m => !existingIds.has(m._id))
-      set({ messages: [...deduped, ...messages], messagesPagination: pagination, loadingOlder: false })
+      // total/pages só vêm na 1ª página; preserva-os ao avançar para não perder
+      // o critério de parada da paginação.
+      const mergedPagination = {
+        ...pagination,
+        total: pagination.total ?? messagesPagination.total,
+        pages: pagination.pages ?? messagesPagination.pages,
+      }
+      set({ messages: [...deduped, ...messages], messagesPagination: mergedPagination, loadingOlder: false })
       return deduped.length
     } catch (error) {
       console.error("Erro ao carregar mensagens anteriores:", error)

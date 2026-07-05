@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { formatDateTime } from '../utils/formatDate'
 import AttachmentView from './AttachmentView'
 
@@ -29,7 +29,7 @@ function countReaders(message, others, reads) {
   }).length
 }
 
-export default function MessageBubble({
+function MessageBubble({
   message,
   isMine,
   currentUserId,
@@ -214,6 +214,10 @@ export default function MessageBubble({
     </div>
   )
 }
+
+// memo: numa conversa longa, evita re-render de todas as bolhas a cada tecla
+// digitada no composer ou a cada nova mensagem/reação.
+export default memo(MessageBubble)
 
 const styles = {
   actionBtn: {

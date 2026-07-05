@@ -3,9 +3,11 @@ import { useAuthStore } from '../store/auth.store'
 
 const api = axios.create({
   baseURL: `${import.meta.env.VITE_API_URL}/api`,
+  // Envia o cookie httpOnly de refresh nas chamadas a /auth/refresh e /auth/logout.
+  withCredentials: true,
 })
 
-// 🔹 Request: adiciona token
+// 🔹 Request: adiciona o access token (em memória) no header
 api.interceptors.request.use(config => {
   const token = useAuthStore.getState().token
 
@@ -23,21 +25,21 @@ const forceLogout = () => {
   }
 }
 
-// 🔥 Response: renova token em 401 e propaga os demais erros (sem alert global)
+// 🔥 Response: renova o token em 401 e propaga os demais erros (sem alert global)
 api.interceptors.response.use(
   response => response,
   async error => {
     const original = error.config
     const status = error.response?.status
-    const isRefreshCall = original?.url?.includes('/auth/refresh')
+    const isAuthCall = original?.url?.includes('/auth/refresh') || original?.url?.includes('/auth/logout')
 
     // 401 em requisição normal → tenta renovar o token uma vez e refaz a requisição
-    if (status === 401 && original && !original._retry && !isRefreshCall) {
+    if (status === 401 && original && !original._retry && !isAuthCall) {
       original._retry = true
 
       try {
-        // O single-flight vive no store: chamadas concorrentes de vários
-        // interceptors/timers compartilham a mesma promise de refresh.
+        // O single-flight vive no store: chamadas concorrentes compartilham a
+        // mesma promise de refresh (usa o cookie httpOnly, sem body).
         const newToken = await useAuthStore.getState().refreshAccessToken()
         original.headers.Authorization = `Bearer ${newToken}`
         return api(original)
@@ -47,8 +49,8 @@ api.interceptors.response.use(
       }
     }
 
-    // O próprio refresh falhou (refresh token expirado/inválido) → desloga
-    if (status === 401 && isRefreshCall) {
+    // O próprio refresh falhou (sessão realmente expirada) → desloga
+    if (status === 401 && original?.url?.includes('/auth/refresh')) {
       forceLogout()
     }
 

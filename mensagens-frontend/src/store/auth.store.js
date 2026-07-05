@@ -8,18 +8,18 @@ export const useAuthStore = create(
   persist(
     (set, get) => ({
       user: null,
+      // Access token vive só em memória (não persiste) — reduz superfície a XSS.
+      // O refresh token fica num cookie httpOnly gerenciado pelo backend.
       token: null,
-      refreshToken: null,
-      // Promise de refresh em andamento. Não persiste (fora do partialize).
-      // Garante single-flight: renovação proativa (timer), reativa (401 no axios)
-      // e do socket compartilham a mesma chamada em vez de disputarem o /auth/refresh.
+      // Enquanto true, o app tenta restaurar a sessão via cookie no boot.
+      hydrating: true,
+      // Promise de refresh em andamento (single-flight, fora do partialize).
       _refreshPromise: null,
 
-      login: async (user, token, refreshToken, password) => {
-        set({ user, token, refreshToken })
+      login: async (user, token, password) => {
+        set({ user, token, hydrating: false })
 
         try {
-          // A senha é usada para cifrar/recuperar o backup da chave privada (E2E).
           await bootstrapCrypto(user, password)
         } catch (err) {
           console.error('Erro ao inicializar criptografia', err)
@@ -32,34 +32,51 @@ export const useAuthStore = create(
         }
       },
 
+      setToken: (token) => set({ token }),
+
       logout: () => {
-        set({ user: null, token: null, refreshToken: null })
+        // Limpa o cookie httpOnly no servidor (best-effort) e o estado local.
+        api.post('/auth/logout').catch(() => {})
+        set({ user: null, token: null, hydrating: false })
+      },
+
+      // Restaura a sessão no boot: se há usuário persistido mas o access token
+      // (em memória) se perdeu no reload, tenta renovar via cookie httpOnly.
+      hydrate: async () => {
+        if (get().token) {
+          set({ hydrating: false })
+          return
+        }
+        if (!get().user) {
+          set({ hydrating: false })
+          return
+        }
+        try {
+          await get().refreshAccessToken()
+        } catch {
+          set({ user: null, token: null })
+        } finally {
+          set({ hydrating: false })
+        }
       },
 
       refreshAccessToken: async () => {
-        // Se já há um refresh em andamento, reaproveita a mesma promise.
         const inFlight = get()._refreshPromise
         if (inFlight) return inFlight
 
-        const { refreshToken } = get()
-
-        if (!refreshToken) {
-          get().logout()
-          throw new Error('No refresh token')
-        }
-
         const promise = (async () => {
           try {
-            const { data } = await api.post('/auth/refresh', { refreshToken })
-
-            set({
+            // Sem body: o refresh token vai no cookie httpOnly (withCredentials).
+            const { data } = await api.post('/auth/refresh')
+            set((state) => ({
               token: data.token,
-              refreshToken: data.refreshToken,
-            })
-
+              // Atualiza dados do usuário se vierem (role/avatar etc.).
+              user: state.user ? { ...state.user, ...pickUser(data) } : state.user,
+            }))
             return data.token
           } catch (error) {
-            get().logout()
+            // Refresh falhou de verdade: encerra a sessão local.
+            set({ user: null, token: null })
             throw error
           } finally {
             set({ _refreshPromise: null })
@@ -72,11 +89,14 @@ export const useAuthStore = create(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({
-        user: state.user,
-        token: state.token,
-        refreshToken: state.refreshToken,
-      }),
+      // Persiste apenas dados não sensíveis; tokens ficam em memória/cookie.
+      partialize: (state) => ({ user: state.user }),
     }
   )
 )
+
+// Extrai só os campos de usuário de uma resposta de auth (ignora token).
+function pickUser(data) {
+  const { token: _token, ...rest } = data
+  return rest
+}

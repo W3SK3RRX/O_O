@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { searchUsers } from '../api/user.api'
 import {
   createConversation,
@@ -7,6 +7,7 @@ import {
 } from '../api/chat.api'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/auth.store'
+import { useNotificationStore } from '../store/notification.store'
 
 import {
   generateConversationKey,
@@ -27,9 +28,11 @@ export default function NewChat() {
 
   const navigate = useNavigate()
   const user = useAuthStore(state => state.user)
+  const addError = useNotificationStore(state => state.addError)
+  const [searched, setSearched] = useState(false)
 
-  const handleSearch = async () => {
-    if (!query.trim()) return
+  const runSearch = useCallback(async () => {
+    if (!query.trim()) { setResults([]); return }
     setLoading(true)
     try {
       const users = await searchUsers(query)
@@ -37,10 +40,19 @@ export default function NewChat() {
     } catch (err) {
       console.error('Erro ao buscar usuários', err)
       setResults([])
+      addError('Falha ao buscar usuários')
     } finally {
       setLoading(false)
+      setSearched(true)
     }
-  }
+  }, [query, user._id, addError])
+
+  // Busca com debounce (300ms) enquanto o usuário digita.
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); setSearched(false); return }
+    const t = setTimeout(runSearch, 300)
+    return () => clearTimeout(t)
+  }, [query, runSearch])
 
   const toggleUser = (u) => {
     setSelectedUsers(prev => {
@@ -68,7 +80,7 @@ export default function NewChat() {
       const targetUserWithKey = await resolveTargetUser(targetUser)
 
       if (!targetUserWithKey.publicKey) {
-        alert('Este usuário ainda não inicializou a criptografia. Peça para ele fazer login primeiro.')
+        addError('Este usuário ainda não inicializou a criptografia. Peça para ele fazer login primeiro.')
         return
       }
 
@@ -129,7 +141,7 @@ export default function NewChat() {
       navigate(`/chat/${conversation._id}`)
     } catch (err) {
       console.error('Erro ao iniciar conversa segura', err)
-      alert('Erro ao iniciar conversa')
+      addError('Erro ao iniciar conversa')
     } finally {
       setLoading(false)
     }
@@ -137,7 +149,7 @@ export default function NewChat() {
 
   const createNewGroup = async () => {
     if (!groupName.trim() || selectedUsers.length < 2) {
-      alert('Nome do grupo e pelo menos 2 participantes são obrigatórios')
+      addError('Nome do grupo e pelo menos 2 participantes são obrigatórios')
       return
     }
 
@@ -172,7 +184,7 @@ export default function NewChat() {
       navigate(`/chat/${group._id}`)
     } catch (err) {
       console.error('Erro ao criar grupo', err)
-      alert('Erro ao criar grupo')
+      addError('Erro ao criar grupo')
     } finally {
       setLoading(false)
     }
@@ -228,12 +240,13 @@ export default function NewChat() {
             <input
               className="field"
               placeholder="Buscar usuário pelo nome"
+              aria-label="Buscar usuário"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              onKeyDown={e => e.key === 'Enter' && runSearch()}
             />
-            <button onClick={handleSearch} disabled={loading} className="btn btn--primary">
-              BUSCAR
+            <button type="button" onClick={runSearch} disabled={loading} className="btn btn--primary">
+              {loading ? '...' : 'BUSCAR'}
             </button>
           </div>
 
@@ -244,12 +257,20 @@ export default function NewChat() {
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            {searched && !loading && results.length === 0 && (
+              <p className="empty-text">{'>'} nenhum usuário encontrado para "{query}"</p>
+            )}
             {results.map(u => {
               const selected = mode === 'group' && !!selectedUsers.find(x => x._id === u._id)
+              const pick = () => (mode === 'group' ? toggleUser(u) : startConversation(u))
               return (
                 <div
                   key={u._id}
-                  onClick={() => (mode === 'group' ? toggleUser(u) : startConversation(u))}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={mode === 'group' ? selected : undefined}
+                  onClick={pick}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick() } }}
                   style={{
                     minHeight: 'var(--tap)',
                     display: 'flex',

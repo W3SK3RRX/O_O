@@ -20,7 +20,6 @@ export default function Login() {
     try {
       const data = await loginRequest(email, password)
       const token = data.token
-      const refreshToken = data.refreshToken
       const user = {
         _id: data._id,
         name: data.name,
@@ -30,17 +29,13 @@ export default function Login() {
         hasPrivateKeyBackup: data.hasPrivateKeyBackup,
         role: data.role,
         isAdmin: data.isAdmin,
-        mustChangePassword: data.mustChangePassword,
         vapidPublicKey: data.vapidPublicKey,
       }
 
-      await login(user, token, refreshToken, password)
+      // Refresh token vem em cookie httpOnly (não trafega no corpo/JS).
+      await login(user, token, password)
 
-      if (user.mustChangePassword) {
-        navigate('/change-password', { replace: true })
-      } else {
-        navigate('/', { replace: true })
-      }
+      navigate('/', { replace: true })
     } catch {
       setError('Credenciais inválidas')
     } finally {
@@ -52,7 +47,7 @@ export default function Login() {
     <div className="screen screen--center screen--form">
       <form onSubmit={handleSubmit} className="shell auth-form">
         <div className="auth-form__tag">[SYSTEM_LOGIN]</div>
-        <h2 className="auth-form__title">O_O</h2>
+        <h1 className="auth-form__title">O_O</h1>
         <p className="auth-form__subtitle">root@secure:~$ login --encrypted</p>
 
         {error && <p className="error-text">{error}</p>}

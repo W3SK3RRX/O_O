@@ -562,10 +562,12 @@ export default function Chat() {
             {uploading ? '…' : '📎'}
           </button>
           <textarea
-            placeholder="Digite sua mensagem... (Enter envia, Shift+Enter quebra linha)"
+            placeholder="Digite sua mensagem..."
+            title="Enter envia • Shift+Enter quebra linha"
             className="field composer__input"
-            aria-label="Mensagem"
+            aria-label="Mensagem (Enter envia, Shift+Enter quebra linha)"
             rows={1}
+            style={{ resize: 'none' }}
             value={text}
             onChange={e => { handleTyping(); setText(e.target.value) }}
             onKeyDown={e => {

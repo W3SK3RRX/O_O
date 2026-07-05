@@ -17,8 +17,9 @@ export default function UserList() {
   const loadUsers = useCallback(async () => {
     try {
       setLoading(true)
+      // getUsers agora retorna { users, pagination } (backend paginado).
       const data = await getUsers()
-      setUsers(data)
+      setUsers(data.users ?? [])
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
     } finally {

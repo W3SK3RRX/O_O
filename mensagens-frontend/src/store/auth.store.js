@@ -10,6 +10,10 @@ export const useAuthStore = create(
       user: null,
       token: null,
       refreshToken: null,
+      // Promise de refresh em andamento. Não persiste (fora do partialize).
+      // Garante single-flight: renovação proativa (timer), reativa (401 no axios)
+      // e do socket compartilham a mesma chamada em vez de disputarem o /auth/refresh.
+      _refreshPromise: null,
 
       login: async (user, token, refreshToken, password) => {
         set({ user, token, refreshToken })
@@ -33,26 +37,37 @@ export const useAuthStore = create(
       },
 
       refreshAccessToken: async () => {
+        // Se já há um refresh em andamento, reaproveita a mesma promise.
+        const inFlight = get()._refreshPromise
+        if (inFlight) return inFlight
+
         const { refreshToken } = get()
-        
+
         if (!refreshToken) {
           get().logout()
           throw new Error('No refresh token')
         }
 
-        try {
-          const { data } = await api.post('/auth/refresh', { refreshToken })
-          
-          set({ 
-            token: data.token, 
-            refreshToken: data.refreshToken 
-          })
-          
-          return data.token
-        } catch (error) {
-          get().logout()
-          throw error
-        }
+        const promise = (async () => {
+          try {
+            const { data } = await api.post('/auth/refresh', { refreshToken })
+
+            set({
+              token: data.token,
+              refreshToken: data.refreshToken,
+            })
+
+            return data.token
+          } catch (error) {
+            get().logout()
+            throw error
+          } finally {
+            set({ _refreshPromise: null })
+          }
+        })()
+
+        set({ _refreshPromise: promise })
+        return promise
       },
     }),
     {

@@ -16,9 +16,6 @@ api.interceptors.request.use(config => {
   return config
 })
 
-// Single-flight: garante uma única chamada de refresh concorrente
-let refreshPromise = null
-
 const forceLogout = () => {
   useAuthStore.getState().logout()
   if (window.location.pathname !== '/login') {
@@ -39,13 +36,9 @@ api.interceptors.response.use(
       original._retry = true
 
       try {
-        if (!refreshPromise) {
-          refreshPromise = useAuthStore.getState()
-            .refreshAccessToken()
-            .finally(() => { refreshPromise = null })
-        }
-
-        const newToken = await refreshPromise
+        // O single-flight vive no store: chamadas concorrentes de vários
+        // interceptors/timers compartilham a mesma promise de refresh.
+        const newToken = await useAuthStore.getState().refreshAccessToken()
         original.headers.Authorization = `Bearer ${newToken}`
         return api(original)
       } catch (refreshError) {

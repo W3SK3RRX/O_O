@@ -13,6 +13,12 @@ const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().min(1),
   VAPID_PRIVATE_KEY: z.string().min(1),
   VAPID_SUBJECT: z.string().min(1),
+  // Segredo que cifra os backups de chave privada E2E no banco. Deve ser distinto
+  // do JWT_SECRET (desacopla rotação de sessão da cifra de backups). Opcional aqui
+  // para compatibilidade: keyBackupCipher cai no JWT_SECRET se ausente.
+  KEY_BACKUP_SECRET: z.string().optional(),
+  // Opcional: quando definido, o Socket.io usa o adapter Redis (escala horizontal).
+  REDIS_URL: z.string().optional(),
 }).superRefine((data, ctx) => {
   // Em produção, exige segredos fortes (>= 32 chars) com base no NODE_ENV já normalizado
   if (data.NODE_ENV === 'production') {
@@ -24,6 +30,14 @@ const envSchema = z.object({
           message: `${key} deve ter pelo menos 32 caracteres em produção`,
         });
       }
+    }
+    // Alerta (não fatal) se o segredo de backup não for distinto do JWT.
+    if (data.KEY_BACKUP_SECRET && data.KEY_BACKUP_SECRET === data.JWT_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['KEY_BACKUP_SECRET'],
+        message: 'KEY_BACKUP_SECRET deve ser distinto de JWT_SECRET',
+      });
     }
   }
 });

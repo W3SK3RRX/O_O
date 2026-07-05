@@ -1,91 +1,72 @@
 import Message from '../models/Message.js';
 import Conversation from '../models/Conversation.js';
 import log from '../config/logger.js';
+import { ForbiddenError, AppError } from '../middlewares/errorClasses.js';
+import { createMessage } from '../services/messageService.js';
 
 export const sendMessage = async (req, res) => {
+  const userId = req.user._id;
+  const { conversationId, cipherText, iv, replyTo, attachments, clientId } = req.body;
+
   try {
-    const userId = req.user._id;
-    // conversationId/cipherText/iv já validados pelo sendMessageSchema
-    const { conversationId, cipherText, iv } = req.body;
-
-    log.info({ conversationId, userId }, 'Enviando mensagem');
-
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: userId,
-    });
-
-    if (!conversation) {
-      log.warn({ conversationId, userId }, 'Acesso negado à conversa');
-      return res.status(403).json({ message: "Acesso negado à conversa" });
-    }
-
-    const message = await Message.create({
+    const { payload } = await createMessage({
+      senderId: userId,
+      senderName: req.user.name,
       conversationId,
-      sender: userId,
       cipherText,
       iv,
-      read: false,
+      replyTo,
+      attachments,
+      clientId,
     });
-
-    conversation.lastMessage = message._id;
-    await conversation.save();
-
-    await message.populate('sender', 'name email avatar');
-
-    log.info({ messageId: message._id }, 'Mensagem enviada com sucesso');
-    return res.status(201).json(message);
-  } catch (error) {
-    log.error({ error }, 'Erro ao enviar mensagem');
-    return res.status(500).json({ message: "Erro ao enviar mensagem" });
+    log.info({ messageId: payload._id }, 'Mensagem enviada (REST)');
+    return res.status(201).json(payload);
+  } catch (err) {
+    if (err.code === 'PAYLOAD_TOO_LARGE') throw new AppError(err.message, 413, 'PAYLOAD_TOO_LARGE');
+    if (err.code === 'INVALID_PAYLOAD') throw new AppError(err.message, 400, 'INVALID_PAYLOAD');
+    throw err;
   }
 };
 
 export const getMessagesByConversation = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    // page/limit já validados e coeridos para inteiros pelo paginationSchema
-    const { page, limit } = req.validatedQuery;
-    const userId = req.user._id;
+  const { conversationId } = req.params;
+  // page/limit já validados e coeridos para inteiros pelo paginationSchema
+  const { page, limit } = req.validatedQuery;
+  const userId = req.user._id;
 
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: userId,
-    });
+  const conversation = await Conversation.findOne({
+    _id: conversationId,
+    participants: userId,
+  }).select('_id');
 
-    if (!conversation) {
-      log.warn({ conversationId, userId }, 'Acesso negado à conversa');
-      return res.status(403).json({ message: "Acesso negado" });
-    }
-
-    const skip = (page - 1) * limit;
-
-    const messages = await Message.find({ conversationId })
-      .populate('sender', 'name email avatar')
-      .populate({
-        path: 'replyTo',
-        select: 'cipherText iv deleted sender',
-        populate: { path: 'sender', select: 'name' },
-      })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Message.countDocuments({ conversationId });
-
-    log.info({ conversationId, page, limit, total }, 'Mensagens buscadas');
-
-    res.json({
-      messages,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    log.error({ error }, 'Erro ao buscar mensagens');
-    res.status(500).json({ message: "Erro ao buscar mensagens" });
+  if (!conversation) {
+    log.warn({ conversationId, userId, requestId: req.requestId }, 'Acesso negado à conversa');
+    throw new ForbiddenError('Acesso negado');
   }
+
+  const skip = (page - 1) * limit;
+
+  const messages = await Message.find({ conversationId })
+    .populate('sender', 'name email avatar')
+    .populate({
+      path: 'replyTo',
+      select: 'cipherText iv deleted sender',
+      populate: { path: 'sender', select: 'name' },
+    })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean(); // resposta read-only: dispensa hidratação de documentos Mongoose
+
+  // O count só é necessário na 1ª página (o cliente guarda a paginação).
+  const total = page === 1 ? await Message.countDocuments({ conversationId }) : undefined;
+
+  res.json({
+    messages,
+    pagination: {
+      page,
+      limit,
+      ...(total !== undefined && { total, pages: Math.ceil(total / limit) }),
+    },
+  });
 };

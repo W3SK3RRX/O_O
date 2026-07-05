@@ -1,299 +1,230 @@
 import Conversation from '../models/Conversation.js';
 import User from '../models/User.js';
-import Message from '../models/Message.js';
 import log from '../config/logger.js';
+import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '../middlewares/errorClasses.js';
+import { attachUnreadCounts } from '../services/conversationService.js';
 
 export const createConversation = async (req, res) => {
-  try {
-    const targetUserId = req.validatedBody?.receiverId || req.body.receiverId || req.body.participantId;
-    const senderId = req.user._id;
+  const targetUserId = req.validatedBody?.receiverId || req.body.receiverId || req.body.participantId;
+  const senderId = req.user._id;
 
-    if (!targetUserId) {
-      return res.status(400).json({ message: 'receiverId é obrigatório' });
-    }
+  if (!targetUserId) {
+    throw new ValidationError('receiverId é obrigatório');
+  }
 
-    if (String(targetUserId) === String(senderId)) {
-      return res.status(400).json({ message: 'Não é possível criar conversa com você mesmo' });
-    }
+  if (String(targetUserId) === String(senderId)) {
+    throw new ValidationError('Não é possível criar conversa com você mesmo');
+  }
 
-    const targetUser = await User.findById(targetUserId);
+  const targetUser = await User.findById(targetUserId).select('_id');
+  if (!targetUser) {
+    throw new NotFoundError('Usuário de destino');
+  }
 
-    if (!targetUser) {
-      log.warn({ targetUserId }, 'Usuário de destino não encontrado');
-      return res.status(404).json({ message: 'Usuário de destino não encontrado' });
-    }
+  let conversation = await Conversation.findOne({
+    isGroup: false,
+    participants: { $all: [senderId, targetUserId], $size: 2 },
+  });
 
-    let conversation = await Conversation.findOne({
-      isGroup: false,
-      participants: { $all: [senderId, targetUserId], $size: 2 },
-    });
-
-    if (!conversation) {
-      try {
-        conversation = await Conversation.create({
-          participants: [senderId, targetUserId],
+  let created = false;
+  if (!conversation) {
+    try {
+      conversation = await Conversation.create({ participants: [senderId, targetUserId] });
+      created = true;
+    } catch (err) {
+      // Race: outra requisição criou a mesma conversa 1-a-1 (índice único)
+      if (err.code === 11000) {
+        conversation = await Conversation.findOne({
+          isGroup: false,
+          participants: { $all: [senderId, targetUserId], $size: 2 },
         });
-      } catch (err) {
-        // Race: outra requisição criou a mesma conversa 1-a-1 (índice único)
-        if (err.code === 11000) {
-          conversation = await Conversation.findOne({
-            isGroup: false,
-            participants: { $all: [senderId, targetUserId], $size: 2 },
-          });
-        } else {
-          throw err;
-        }
+      } else {
+        throw err;
       }
     }
-
-    await conversation.populate('participants', 'name email avatar publicKey');
-
-    log.info({ conversationId: conversation._id }, 'Conversa criada/encontrada');
-    res.status(200).json(conversation);
-  } catch (error) {
-    log.error({ error }, 'Erro ao criar conversa');
-    res.status(500).json({ message: "Erro ao criar conversa" });
   }
+
+  await conversation.populate('participants', 'name email avatar publicKey');
+
+  log.info({ conversationId: conversation._id, created }, 'Conversa criada/encontrada');
+  res.status(created ? 201 : 200).json(conversation);
 };
 
 export const createGroup = async (req, res) => {
-  try {
-    // name e participants já validados pelo schema (createGroupSchema)
-    const { name, participants } = req.body;
-    const senderId = req.user._id;
+  const { name, participants } = req.body;
+  const senderId = req.user._id;
 
-    // Garante que todos os participantes informados existem
-    const foundUsers = await User.find({ _id: { $in: participants } }).select('_id');
-    if (foundUsers.length !== new Set(participants).size) {
-      return res.status(400).json({ message: 'Um ou mais participantes não existem' });
-    }
-
-    const uniqueParticipants = [...new Set([senderId.toString(), ...participants])];
-
-    const group = await Conversation.create({
-      name,
-      participants: uniqueParticipants,
-      isGroup: true,
-      createdBy: senderId
-    });
-
-    await group.populate('participants', 'name email avatar publicKey');
-
-    log.info({ groupId: group._id, name }, 'Grupo criado');
-    res.status(201).json(group);
-  } catch (error) {
-    log.error({ error }, 'Erro ao criar grupo');
-    res.status(500).json({ message: "Erro ao criar grupo" });
+  const foundUsers = await User.find({ _id: { $in: participants } }).select('_id');
+  if (foundUsers.length !== new Set(participants).size) {
+    throw new ValidationError('Um ou mais participantes não existem');
   }
+
+  const uniqueParticipants = [...new Set([senderId.toString(), ...participants])];
+
+  const group = await Conversation.create({
+    name,
+    participants: uniqueParticipants,
+    isGroup: true,
+    createdBy: senderId,
+  });
+
+  await group.populate('participants', 'name email avatar publicKey');
+
+  log.info({ groupId: group._id }, 'Grupo criado');
+  res.status(201).json(group);
 };
 
 export const addParticipant = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const { userId } = req.body;
-    const adminId = req.user._id;
+  const { conversationId } = req.params;
+  const { userId } = req.body;
+  const adminId = req.user._id;
 
-    const conversation = await Conversation.findById(conversationId);
+  const conversation = await Conversation.findById(conversationId);
+  if (!conversation) throw new NotFoundError('Conversa');
 
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversa não encontrada' });
-    }
-
-    if (!conversation.isGroup) {
-      return res.status(400).json({ message: 'Não é possível adicionar participantes em conversa privada' });
-    }
-
-    if (String(conversation.createdBy) !== String(adminId)) {
-      return res.status(403).json({ message: 'Apenas o criador pode adicionar participantes' });
-    }
-
-    const targetUser = await User.findById(userId);
-    if (!targetUser) {
-      return res.status(404).json({ message: 'Usuário não encontrado' });
-    }
-
-    if (conversation.participants.some((p) => String(p) === String(userId))) {
-      return res.status(400).json({ message: 'Usuário já é participante' });
-    }
-
-    conversation.participants.push(userId);
-    await conversation.save();
-
-    await conversation.populate('participants', 'name email avatar publicKey');
-
-    log.info({ conversationId, userId }, 'Participante adicionado');
-    res.status(200).json(conversation);
-  } catch (error) {
-    log.error({ error }, 'Erro ao adicionar participante');
-    res.status(500).json({ message: "Erro ao adicionar participante" });
+  if (!conversation.isGroup) {
+    throw new ValidationError('Não é possível adicionar participantes em conversa privada');
   }
+  if (String(conversation.createdBy) !== String(adminId)) {
+    throw new ForbiddenError('Apenas o criador pode adicionar participantes');
+  }
+
+  const targetUser = await User.findById(userId).select('_id');
+  if (!targetUser) throw new NotFoundError('Usuário');
+
+  if (conversation.participants.some((p) => String(p) === String(userId))) {
+    throw new ConflictError('Usuário já é participante');
+  }
+
+  conversation.participants.push(userId);
+  await conversation.save();
+  await conversation.populate('participants', 'name email avatar publicKey');
+
+  log.info({ conversationId, userId }, 'Participante adicionado');
+  res.status(200).json(conversation);
 };
 
 export const removeParticipant = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const { userId } = req.body;
-    const adminId = req.user._id;
+  const { conversationId } = req.params;
+  const { userId } = req.body;
+  const adminId = req.user._id;
 
-    const conversation = await Conversation.findById(conversationId);
+  const conversation = await Conversation.findById(conversationId);
+  if (!conversation) throw new NotFoundError('Conversa');
 
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversa não encontrada' });
-    }
-
-    if (!conversation.isGroup) {
-      return res.status(400).json({ message: 'Não é possível remover participantes de conversa privada' });
-    }
-
-    if (String(conversation.createdBy) !== String(adminId)) {
-      return res.status(403).json({ message: 'Apenas o criador pode remover participantes' });
-    }
-
-    conversation.participants = conversation.participants.filter(
-      p => String(p) !== String(userId)
-    );
-    await conversation.save();
-
-    await conversation.populate('participants', 'name email avatar publicKey');
-
-    log.info({ conversationId, userId }, 'Participante removido');
-    res.status(200).json(conversation);
-  } catch (error) {
-    log.error({ error }, 'Erro ao remover participante');
-    res.status(500).json({ message: "Erro ao remover participante" });
+  if (!conversation.isGroup) {
+    throw new ValidationError('Não é possível remover participantes de conversa privada');
   }
+  if (String(conversation.createdBy) !== String(adminId)) {
+    throw new ForbiddenError('Apenas o criador pode remover participantes');
+  }
+
+  conversation.participants = conversation.participants.filter((p) => String(p) !== String(userId));
+  await conversation.save();
+  await conversation.populate('participants', 'name email avatar publicKey');
+
+  log.info({ conversationId, userId }, 'Participante removido');
+  res.status(200).json(conversation);
 };
 
 export const saveConversationKeys = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const { encryptedKeys, keyVersion } = req.body;
-    const userId = req.user._id;
+  const { conversationId } = req.params;
+  const { encryptedKeys, keyVersion } = req.body;
+  const userId = req.user._id;
 
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: userId,
-    });
+  const conversation = await Conversation.findOne({
+    _id: conversationId,
+    participants: userId,
+  });
 
-    if (!conversation) {
-      log.warn({ conversationId, userId }, 'Conversa não encontrada');
-      return res.status(404).json({ message: 'Conversa não encontrada' });
-    }
+  if (!conversation) throw new NotFoundError('Conversa');
 
-    conversation.encryptedKeys = encryptedKeys;
-    
-    // Atualiza a versão da chave se fornecida
-    if (keyVersion !== undefined) {
-      conversation.keyVersion = keyVersion;
-    }
-    
-    await conversation.save();
+  const currentVersion = conversation.keyVersion ?? 0;
+  const newVersion = keyVersion ?? currentVersion;
 
-    log.info({ conversationId, keyVersion }, 'Chaves da conversa salvas');
-    return res.status(200).json({ message: 'Chaves da conversa salvas' });
-  } catch (error) {
-    log.error({ error }, 'Erro ao salvar chaves da conversa');
-    return res.status(500).json({ message: 'Erro ao salvar chaves da conversa' });
+  // Anti-downgrade: não aceita versão de chave anterior à atual.
+  if (newVersion < currentVersion) {
+    throw new ValidationError('Versão de chave desatualizada');
   }
+
+  if (newVersion > currentVersion) {
+    // Rotação de chave: substitui o mapa inteiro (nova versão para todos).
+    conversation.encryptedKeys = encryptedKeys;
+    conversation.keyVersion = newVersion;
+  } else {
+    // Mesma versão: MERGE — permite adicionar/atualizar entradas sem apagar as
+    // dos demais membros (impede que um participante zere o acesso alheio).
+    for (const [uid, key] of Object.entries(encryptedKeys)) {
+      conversation.encryptedKeys.set(uid, key);
+    }
+  }
+
+  await conversation.save();
+
+  log.info({ conversationId, keyVersion: conversation.keyVersion }, 'Chaves da conversa salvas');
+  res.status(200).json({ message: 'Chaves da conversa salvas' });
+};
+
+export const getConversationById = async (req, res) => {
+  const { conversationId } = req.params;
+  const userId = req.user._id;
+
+  const conversation = await Conversation.findOne({
+    _id: conversationId,
+    participants: userId,
+  })
+    .populate('participants', 'name email avatar publicKey')
+    .populate('lastMessage')
+    .lean();
+
+  if (!conversation) throw new NotFoundError('Conversa');
+
+  await attachUnreadCounts([conversation], userId);
+
+  res.status(200).json(conversation);
 };
 
 export const getUserConversations = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    // page/limit já validados e coeridos para inteiros pelo paginationSchema
-    const { page, limit } = req.validatedQuery;
+  const userId = req.user._id;
+  const { page, limit } = req.validatedQuery;
+  const skip = (page - 1) * limit;
 
-    const skip = (page - 1) * limit;
+  const conversations = await Conversation.find({ participants: userId })
+    .populate('participants', 'name email avatar publicKey')
+    .populate('lastMessage')
+    .sort({ updatedAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
 
-    const conversations = await Conversation.find({
-      participants: userId,
-    })
-      .populate('participants', 'name email avatar publicKey')
-      .populate('lastMessage')
-      .sort({ updatedAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+  const total = page === 1 ? await Conversation.countDocuments({ participants: userId }) : undefined;
 
-    const total = await Conversation.countDocuments({ participants: userId });
+  await attachUnreadCounts(conversations, userId);
 
-    // Contagem de não lidas por conversa em UMA agregação (evita N+1).
-    // Para cada conversa da página: mensagens de outros, não deletadas, mais
-    // recentes que a última leitura do usuário (todas, se nunca leu).
-    const userIdStr = userId.toString();
-    const unreadByConversation = await buildUnreadCounts(conversations, userId, userIdStr);
-
-    for (const conv of conversations) {
-      conv.unreadCount = unreadByConversation.get(conv._id.toString()) ?? 0;
-      // Última leitura do próprio usuário — usada para ancorar "novas mensagens".
-      conv.myLastReadAt = conv.reads?.[userIdStr] ?? null;
-      // reads (lastReadAt por participante) segue no payload: alimenta os recibos
-      // de leitura por membro em grupos. São só timestamps de leitura.
-    }
-
-    log.info({ userId, page, limit, total }, 'Conversas buscadas');
-
-    res.status(200).json({
-      conversations,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    log.error({ error }, 'Erro ao buscar conversas');
-    res.status(500).json({ message: "Erro ao buscar conversas" });
-  }
+  res.status(200).json({
+    conversations,
+    pagination: {
+      page,
+      limit,
+      ...(total !== undefined && { total, pages: Math.ceil(total / limit) }),
+    },
+  });
 };
 
-// Conta não lidas de várias conversas em uma única agregação (sem N+1).
-// Retorna Map<conversationId(string), count>. `conversations` deve ser lean.
-async function buildUnreadCounts(conversations, userId, userIdStr) {
-  const counts = new Map();
-  if (!conversations.length) return counts;
+export const markConversationRead = async (req, res) => {
+  const { conversationId } = req.params;
+  const userId = req.user._id;
 
-  const orConditions = conversations.map((conv) => {
-    const cond = { conversationId: conv._id, sender: { $ne: userId } };
-    const since = conv.reads?.[userIdStr];
-    if (since) cond.createdAt = { $gt: since };
-    return cond;
+  const conversation = await Conversation.findOne({
+    _id: conversationId,
+    participants: userId,
   });
 
-  const grouped = await Message.aggregate([
-    { $match: { deleted: { $ne: true }, $or: orConditions } },
-    { $group: { _id: '$conversationId', count: { $sum: 1 } } },
-  ]);
+  if (!conversation) throw new NotFoundError('Conversa');
 
-  for (const row of grouped) {
-    counts.set(row._id.toString(), row.count);
-  }
+  conversation.reads.set(userId.toString(), new Date());
+  await conversation.save();
 
-  return counts;
-}
-
-export const markConversationRead = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const userId = req.user._id;
-
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: userId,
-    });
-
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversa não encontrada' });
-    }
-
-    conversation.reads.set(userId.toString(), new Date());
-    await conversation.save();
-
-    log.info({ conversationId, userId }, 'Conversa marcada como lida');
-    return res.status(200).json({ unreadCount: 0 });
-  } catch (error) {
-    log.error({ error }, 'Erro ao marcar conversa como lida');
-    return res.status(500).json({ message: 'Erro ao marcar conversa como lida' });
-  }
+  log.info({ conversationId, userId }, 'Conversa marcada como lida');
+  res.status(200).json({ unreadCount: 0 });
 };

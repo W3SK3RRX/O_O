@@ -41,6 +41,13 @@ const userSchema = new mongoose.Schema({
   active: {
     type: Boolean,
     default: true
+  },
+  // Versão do token: incrementada em troca de senha, reset e desativação.
+  // Access/refresh tokens carregam a versão em que foram emitidos; qualquer
+  // token com versão diferente da atual é rejeitado (revogação de sessão).
+  tokenVersion: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 

@@ -19,11 +19,26 @@ export const participantSchema = z.object({
   userId: objectId,
 });
 
-// Schema para envio de mensagem
+// Schema para envio de mensagem. Limites de tamanho também são reforçados no
+// messageService (caminho do socket não passa por aqui).
 export const sendMessageSchema = z.object({
-  conversationId: z.string().min(1, 'conversationId é obrigatório'),
-  cipherText: z.string().min(1, 'cipherText é obrigatório'),
-  iv: z.string().min(1, 'iv é obrigatório'),
+  conversationId: objectId,
+  cipherText: z.string().min(1, 'cipherText é obrigatório').max(65536, 'Mensagem muito grande'),
+  iv: z.string().min(1, 'iv é obrigatório').max(256),
+  replyTo: objectId.optional().nullable(),
+  clientId: z.string().max(128).optional().nullable(),
+  attachments: z
+    .array(
+      z.object({
+        attachmentId: objectId,
+        name: z.string().max(255).optional(),
+        mime: z.string().max(100).optional(),
+        size: z.number().int().nonnegative().optional(),
+        iv: z.string().min(1).max(256),
+      })
+    )
+    .max(10)
+    .optional(),
 });
 
 // Schema para upload de anexo criptografado
@@ -38,6 +53,11 @@ export const uploadAttachmentSchema = z.object({
 export const saveConversationKeysSchema = z.object({
   encryptedKeys: z.record(z.string(), z.string()),
   keyVersion: z.number().int().optional(),
+});
+
+// Schema para validar :conversationId na URL
+export const conversationIdParamSchema = z.object({
+  conversationId: objectId,
 });
 
 // Schema para paginação

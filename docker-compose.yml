@@ -32,6 +32,9 @@ services:
       KEY_BACKUP_SECRET: ${KEY_BACKUP_SECRET:-}
       CORS_ORIGIN: https://oo.infinityforge.com.br
       LOG_LEVEL: info
+      # Opcional: URL do Redis para o adapter do Socket.io (escala horizontal).
+      # Vazio = instância única (padrão atual). Requer @socket.io/redis-adapter + redis.
+      REDIS_URL: ${REDIS_URL:-}
       # Web Push (VAPID) — defina estes valores no .env da raiz na VPS
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}

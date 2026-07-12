@@ -9,7 +9,7 @@ const MAX_CIPHER_BYTES = 10 * 1024 * 1024;
 
 export const uploadAttachment = async (req, res) => {
   const userId = req.user._id;
-  const { conversationId, name, mime, cipherBase64 } = req.body;
+  const { conversationId, name, mime } = req.validatedQuery;
 
   const conversation = await Conversation.findOne({
     _id: conversationId,
@@ -18,8 +18,9 @@ export const uploadAttachment = async (req, res) => {
 
   if (!conversation) throw new ForbiddenError('Acesso negado à conversa');
 
-  const buffer = Buffer.from(cipherBase64, 'base64');
-  if (buffer.length === 0) throw new ValidationError('Anexo vazio ou inválido');
+  // Corpo binário (ciphertext AES-GCM) lido pelo express.raw na rota.
+  const buffer = req.body;
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) throw new ValidationError('Anexo vazio ou inválido');
   if (buffer.length > MAX_CIPHER_BYTES) {
     const err = new ValidationError('Anexo excede o tamanho máximo');
     err.statusCode = 413;
@@ -60,11 +61,10 @@ export const getAttachment = async (req, res) => {
   if (!conversation) throw new ForbiddenError('Acesso negado ao anexo');
 
   // O ciphertext é imutável — cacheável pelo navegador (privado, não por proxies).
+  // Enviado como binário puro (sem base64/JSON): metade do overhead de rede e
+  // sem JSON.parse pesado no cliente. mime/name já são conhecidos pelo cliente
+  // (vêm nos metadados da mensagem).
   res.set('Cache-Control', 'private, max-age=31536000, immutable');
-  res.status(200).json({
-    mime: attachment.mime,
-    name: attachment.name,
-    size: attachment.size,
-    cipherBase64: attachment.data.toString('base64'),
-  });
+  res.set('Content-Type', 'application/octet-stream');
+  res.status(200).send(attachment.data);
 };

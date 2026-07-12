@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { fetchAttachment } from '../api/attachment.api'
+import { useEffect, useState } from 'react'
+import { fetchAttachmentBytes } from '../api/attachment.api'
 import { decryptToBlobUrl } from '../crypto/attachment'
+import { getCachedUrl, setCachedUrl } from '../utils/attachmentCache'
 
 function formatSize(bytes) {
   if (!bytes) return ''
@@ -12,20 +13,23 @@ function formatSize(bytes) {
 // Baixa o ciphertext do anexo, decifra com a chave da conversa e renderiza
 // imagem inline ou link de download. Revoga o object URL ao desmontar.
 export default function AttachmentView({ attachment, conversationKey }) {
-  const [url, setUrl] = useState(null)
+  // Se já deciframos este anexo antes, reaproveitamos o object URL do cache já
+  // no primeiro render (sem rede, sem re-decifrar, sem flash de "carregando").
+  const [url, setUrl] = useState(() => getCachedUrl(attachment?.attachmentId) ?? null)
   const [error, setError] = useState(false)
-  const urlRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
-    if (!conversationKey || !attachment?.attachmentId) return
+    const id = attachment?.attachmentId
+    // Sem chave, sem id, ou já resolvido pelo cache: nada a buscar.
+    if (!conversationKey || !id || getCachedUrl(id)) return
 
     ;(async () => {
       try {
-        const data = await fetchAttachment(attachment.attachmentId)
+        const cipherBuffer = await fetchAttachmentBytes(id)
         const objectUrl = await decryptToBlobUrl(
           conversationKey,
-          data.cipherBase64,
+          cipherBuffer,
           attachment.iv,
           attachment.mime
         )
@@ -33,7 +37,8 @@ export default function AttachmentView({ attachment, conversationKey }) {
           URL.revokeObjectURL(objectUrl)
           return
         }
-        urlRef.current = objectUrl
+        // O cache passa a ser dono do URL — não revogamos ao desmontar.
+        setCachedUrl(id, objectUrl)
         setUrl(objectUrl)
       } catch {
         if (!cancelled) setError(true)
@@ -42,10 +47,6 @@ export default function AttachmentView({ attachment, conversationKey }) {
 
     return () => {
       cancelled = true
-      if (urlRef.current) {
-        URL.revokeObjectURL(urlRef.current)
-        urlRef.current = null
-      }
     }
   }, [attachment?.attachmentId, attachment?.iv, attachment?.mime, conversationKey])
 

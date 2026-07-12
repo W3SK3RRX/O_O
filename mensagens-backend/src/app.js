@@ -35,7 +35,9 @@ app.use(helmet({
   hsts: { maxAge: 31536000, includeSubDomains: true },
 }));
 
-// Compressão de respostas (gzip). Ganho grande em payloads base64 (ciphertext).
+// Compressão de respostas (gzip) para JSON (listas, metadados). Anexos trafegam
+// como binário (octet-stream) e o compression os ignora — não desperdiça CPU
+// comprimindo ciphertext, que é incompressível.
 app.use(compression());
 
 // CORS com origens explícitas via env
@@ -59,11 +61,9 @@ app.use((req, res, next) => {
 // Rate limiting global (antes de processar o body)
 app.use(globalLimiter);
 
-// Parse de body.
-// Anexos (ciphertext em base64) precisam de um limite maior; este parser casa
-// só com /api/attachments e roda ANTES do global de 1mb. express.json marca
-// req._body, então o parser global abaixo é ignorado para essa rota.
-app.use('/api/attachments', express.json({ limit: '12mb' }));
+// Parse de body. O upload de anexo usa corpo binário (octet-stream) e tem seu
+// próprio parser express.raw na rota; o parser JSON abaixo não casa com esse
+// content-type e o ignora.
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());

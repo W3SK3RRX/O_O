@@ -20,8 +20,10 @@ export async function encryptFile(conversationKey, file) {
     buffer
   )
 
+  // O ciphertext vai como binário (ArrayBuffer) direto no corpo do upload —
+  // sem base64. O iv é pequeno e segue nos metadados da mensagem (base64).
   return {
-    cipherBase64: arrayBufferToBase64(cipherBuffer),
+    cipherBuffer,
     iv: arrayBufferToBase64(iv),
     name: file.name,
     mime: file.type || 'application/octet-stream',
@@ -29,10 +31,10 @@ export async function encryptFile(conversationKey, file) {
   }
 }
 
-// Decifra o ciphertext e devolve um object URL para uso em <img>/<a download>.
-// Quem chama é responsável por revogar o URL (URL.revokeObjectURL) ao descartar.
-export async function decryptToBlobUrl(conversationKey, cipherBase64, iv, mime) {
-  const cipherBuffer = base64ToArrayBuffer(cipherBase64)
+// Decifra o ciphertext (ArrayBuffer binário vindo do download) e devolve um
+// object URL para uso em <img>/<a download>. Quem chama é responsável por
+// revogar o URL (URL.revokeObjectURL) ao descartar.
+export async function decryptToBlobUrl(conversationKey, cipherBuffer, iv, mime) {
   const ivBuffer = base64ToArrayBuffer(iv)
 
   const plainBuffer = await crypto.subtle.decrypt(

@@ -13,6 +13,7 @@ import { loadConversationKey, saveConversationKey } from '../crypto/conv-storage
 import { importConversationKey } from '../crypto/conversation'
 import { encryptMessage, decryptMessage } from '../crypto/message'
 import { encryptFile } from '../crypto/attachment'
+import { downscaleImage } from '../utils/image'
 import { decryptWithPrivateKey } from '../crypto/envelope'
 import { importPrivateKey } from '../crypto/keys'
 import { getPrivateKey } from '../crypto/storage'
@@ -22,7 +23,8 @@ import { useNotificationStore } from '../store/notification.store'
 
 // Limite de tamanho de arquivo em claro (o ciphertext cifrado fica um pouco maior;
 // o backend recusa acima de ~10MB de ciphertext).
-const MAX_FILE_BYTES = 8 * 1024 * 1024
+const MAX_FILE_BYTES = 8 * 1024 * 1024 // limite final do anexo (pós-redução)
+const MAX_INPUT_BYTES = 25 * 1024 * 1024 // teto bruto de entrada (proteção de memória ao decodificar)
 
 export default function Chat() {
   const { conversationId } = useParams()
@@ -375,14 +377,21 @@ export default function Chat() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file || !conversationKey) return
-    if (file.size > MAX_FILE_BYTES) {
-      addError('Arquivo muito grande (máximo 8MB).')
+    if (file.size > MAX_INPUT_BYTES) {
+      addError('Arquivo muito grande (máximo 25MB).')
       return
     }
     setUploading(true)
     try {
-      const enc = await encryptFile(conversationKey, file)
-      const up = await uploadAttachment({ conversationId, name: enc.name, mime: enc.mime, cipherBase64: enc.cipherBase64 })
+      // Imagens grandes são reduzidas no cliente antes de cifrar: upload e
+      // exibição ficam muito mais rápidos, sem abrir mão do E2E.
+      const prepared = await downscaleImage(file)
+      if (prepared.size > MAX_FILE_BYTES) {
+        addError('Arquivo muito grande (máximo 8MB).')
+        return
+      }
+      const enc = await encryptFile(conversationKey, prepared)
+      const up = await uploadAttachment({ conversationId, name: enc.name, mime: enc.mime, cipherBuffer: enc.cipherBuffer })
       setPendingAttachments(prev => [...prev, { attachmentId: up.attachmentId, name: enc.name, mime: enc.mime, size: enc.size, iv: enc.iv }])
     } catch (err) {
       addError(err?.response?.data?.error?.message || err?.message || 'Falha ao anexar arquivo')

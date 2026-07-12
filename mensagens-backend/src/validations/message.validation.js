@@ -41,10 +41,10 @@ export const sendMessageSchema = z.object({
     .optional(),
 });
 
-// Schema para upload de anexo criptografado
+// Schema para upload de anexo criptografado. O ciphertext vai no corpo binário
+// (octet-stream); estes metadados vêm na query string.
 export const uploadAttachmentSchema = z.object({
   conversationId: objectId,
-  cipherBase64: z.string().min(1, 'cipherBase64 é obrigatório'),
   name: z.string().max(255).optional(),
   mime: z.string().max(100).optional(),
 });
